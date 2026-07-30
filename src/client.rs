@@ -143,26 +143,35 @@ impl ClientConnection {
         let mut data_source = self.source.next().unwrap();
         std::mem::swap(&mut self.next_header_source, &mut data_source);
 
+        // fix https://github.com/tiny-http/tiny-http/pull/285
+        let remote_addr = 
+            self.remote_addr.as_ref()
+                .map_err(|e| ReadError::ReadIoError(IoError::from(e.kind())))
+                .map(|addr| *addr)?;
+
         // building the next reader
-        let request = crate::request::new_request(
-            self.secure,
-            method,
-            path,
-            version.clone(),
-            headers,
-            *self.remote_addr.as_ref().unwrap(),
-            data_source,
-            writer,
-        )
-        .map_err(|e| {
-            use crate::request;
-            match e {
-                request::RequestCreationError::CreationIoError(e) => ReadError::ReadIoError(e),
-                request::RequestCreationError::ExpectationFailed => {
-                    ReadError::ExpectationFailed(version)
+        let request = 
+            crate::request::new_request(
+                self.secure,
+                method,
+                path,
+                version.clone(),
+                headers,
+                remote_addr,
+                data_source,
+                writer,
+            )
+            .map_err(|e| 
+                {
+                    use crate::request;
+                    match e {
+                        request::RequestCreationError::CreationIoError(e) => ReadError::ReadIoError(e),
+                        request::RequestCreationError::ExpectationFailed => {
+                            ReadError::ExpectationFailed(version)
+                        }
+                    }
                 }
-            }
-        })?;
+            )?;
 
         // return the request
         Ok(request)
