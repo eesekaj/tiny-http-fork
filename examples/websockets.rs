@@ -7,6 +7,7 @@ use std::io::Read;
 use std::thread::spawn;
 
 use rustc_serialize::base64::{Config, Newline, Standard, ToBase64};
+use sha1::Digest;
 
 fn home_page(port: u16) -> tiny_http::Response<Cursor<Vec<u8>>> {
     tiny_http::Response::from_string(format!(
@@ -52,12 +53,15 @@ fn convert_key(input: &str) -> String {
     let mut sha1 = Sha1::new();
     sha1.update(&input);
 
-    sha1.digest().bytes().to_base64(Config {
-        char_set: Standard,
-        pad: true,
-        line_length: None,
-        newline: Newline::LF,
-    })
+    sha1.finalize().to_base64(
+        Config 
+        {
+            char_set: Standard,
+            pad: true,
+            line_length: None,
+            newline: Newline::LF,
+        }
+    )
 }
 
 fn main() {
