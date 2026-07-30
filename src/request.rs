@@ -266,7 +266,7 @@ where
             return Err(RequestCreationError::ProtocolViolation);
         }
 
-        const KNOWN_TRANSFER_ENCS: &'static [&'static str] = &["chunked", "gzip", "deflate"];
+        const KNOWN_TRANSFER_ENCS: &'static [&'static str] = &["chunked", "gzip", "deflate", "compress"];
 
         // go though all params to detemine if there are invalid combinations
         if params.len() > 1

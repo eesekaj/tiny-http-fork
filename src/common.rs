@@ -154,7 +154,8 @@ pub struct Header {
     pub value: AsciiString,
 }
 
-impl Header {
+impl Header 
+{
     /// Builds a `Header` from two `Vec<u8>`s or two `&[u8]`s.
     ///
     /// Example:
@@ -171,10 +172,26 @@ impl Header {
         let header = HeaderField::from_bytes(header).or(Err(()))?;
         let value = AsciiString::from_ascii(value).or(Err(()))?;
 
-        Ok(Header {
-            field: header,
-            value,
-        })
+        const NOT_CHARS: &'static [char] = &['"','(',')',',','/',':',';','<','=','>','?','@','[','\\',']','{','}','\''];
+        
+        // reject values containing 0x0D, 0x0A or 0x00,
+        // reject field names containing anything outside the RFC 9110 token set:
+        //   Tokens are short textual identifiers that do not include whitespace or delimiters
+        //    US-ASCII visual characters not allowed in a token (DQUOTE and "(),/:;<=>?@[\]{}").
+        if value.as_bytes().iter().any(|ch| *ch == b'\x0d' || *ch == b'\x0a' || *ch == b'\x00') == true
+        {
+            return Err(());
+        }
+        else if false ==
+            header.0.as_str().chars()
+                .all(|ch| 
+                    ch.is_ascii_alphanumeric() == true ||  NOT_CHARS.contains(&ch) == false
+                ) 
+        {
+            return Err(());
+        }
+
+        return Ok( Header{ field: header, value } );
     }
 }
 
@@ -428,7 +445,8 @@ mod test {
     // through malformed Transfer Encoding headers"
     // (https://rustsec.org/advisories/RUSTSEC-2020-0031.html).
     #[test]
-    fn test_strict_headers() {
+    fn test_strict_headers() 
+    {
         assert!("Transfer-Encoding : chunked".parse::<Header>().is_err());
         assert!(" Transfer-Encoding: chunked".parse::<Header>().is_err());
         assert!("Transfer Encoding: chunked".parse::<Header>().is_err());
@@ -436,5 +454,17 @@ mod test {
         assert!("Transfer-Encoding: chunked".parse::<Header>().is_ok());
         assert!("Transfer-Encoding: chunked ".parse::<Header>().is_ok());
         assert!("Transfer-Encoding:   chunked ".parse::<Header>().is_ok());
+    }
+
+    #[test]
+    fn test_header_str()
+    {
+        Header::from_bytes("Content-Type", "text/plain; charset=UTF-8").unwrap();
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; \x0acharset=UTF-8").is_err(), true);
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; \x0dcharset=UTF-8").is_err(), true);
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; charset=UTF-8\x00").is_err(), true);
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; \x00charset=UTF-8").is_err(), true);
+        assert_eq!(Header::from_bytes("Cont'ent-Type", "text/plain; charset=UTF-8").is_err(), true);
+        assert_eq!(Header::from_bytes("Content@Type", "text/plain; charset=UTF-8").is_err(), true);
     }
 }

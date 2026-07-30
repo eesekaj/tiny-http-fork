@@ -79,32 +79,54 @@ impl ClientConnection {
     ///  at the first byte of the new line.
     /// 
     /// CVE-2026-66753 fixed
-    fn read_next_line(&mut self) -> IoResult<AsciiString> 
+    fn read_next_line(&mut self) -> Result<AsciiString, ReadError> 
     {
         let mut buf = Vec::new();
-        let mut prev_byte_was_cr = false;
+        let mut rn = [0_u8; 2];
+        let mut rn_p = 0;
+        const RNC: u16 = u16::from_le_bytes([b'\r', b'\n']);
 
+        
         loop 
         {
-            let byte = 
+            let cur_byte = 
                 self.next_header_source.by_ref().bytes().next()
                     .ok_or_else(||
-                        IoError::new(ErrorKind::ConnectionAborted, "Unexpected EOF")
-                    )??;
+                       ReadError::ReadIoError(IoError::new(ErrorKind::ConnectionAborted, "Unexpected EOF"))
+                    )?
+                    .map_err(|e|
+                        ReadError::ReadIoError(e)
+                    )?;
 
-
-            if byte == b'\n' && prev_byte_was_cr 
+            match rn_p
             {
-                buf.pop(); // removing the '\r'
+                0 => 
+                {
+                    if cur_byte != b'\r' && cur_byte != b'\n'
+                    { // most times true
+                        buf.push(cur_byte);
+                    }
+                    else
+                    {
+                        rn[rn_p] = cur_byte;
+                        rn_p += 1;
+                    }
+                },
+                _ =>
+                {
+                    rn[rn_p] = cur_byte;
 
-                return 
-                    AsciiString::from_ascii(buf)
-                        .map_err(|_| IoError::new(ErrorKind::InvalidInput, "Header is not in ASCII"));
+                    if u16::from_le_bytes(rn) != RNC
+                    {
+                        // error
+                        return Err(ReadError::WrongRequestLine);
+                    }
+
+                    return
+                        AsciiString::from_ascii(buf)
+                            .map_err(|_| ReadError::ReadIoError(IoError::new(ErrorKind::InvalidInput, "Header is not in ASCII")));
+                }
             }
-
-            prev_byte_was_cr = byte == b'\r';
-
-            buf.push(byte);
         }
     }
 
@@ -114,7 +136,7 @@ impl ClientConnection {
         let (method, path, version, headers) = {
             // reading the request line
             let (method, path, version) = {
-                let line = self.read_next_line().map_err(ReadError::ReadIoError)?;
+                let line = self.read_next_line()?;
 
                 parse_request_line(
                     line.as_str().trim(), // TODO: remove this conversion
@@ -122,23 +144,25 @@ impl ClientConnection {
             };
 
             // getting all headers
-            let headers = {
-                let mut headers = Vec::new();
-                loop {
-                    let line = self.read_next_line().map_err(ReadError::ReadIoError)?;
+            let headers = 
+                {
+                    let mut headers = Vec::new();
+                    loop 
+                    {
+                        let line = self.read_next_line()?;
 
-                    if line.is_empty() {
-                        break;
-                    };
-                    headers.push(match FromStr::from_str(line.as_str().trim()) {
-                        // TODO: remove this conversion
-                        Ok(h) => h,
-                        _ => return Err(ReadError::WrongHeader(version)),
-                    });
-                }
+                        if line.is_empty() {
+                            break;
+                        };
+                        headers.push(match FromStr::from_str(line.as_str().trim()) {
+                            // TODO: remove this conversion
+                            Ok(h) => h,
+                            _ => return Err(ReadError::WrongHeader(version)),
+                        });
+                    }
 
-                headers
-            };
+                    headers
+                };
 
             (method, path, version, headers)
         };
@@ -315,9 +339,15 @@ fn parse_request_line(line: &str) -> Result<(Method, String, HTTPVersion), ReadE
 }
 
 #[cfg(test)]
-mod test {
+mod test 
+{
+    use std::{iter::Peekable, str::Bytes};
+
+use super::*;
+
     #[test]
-    fn test_parse_request_line() {
+    fn test_parse_request_line() 
+    {
         let (method, path, ver) = super::parse_request_line("GET /hello HTTP/1.1").unwrap();
 
         assert!(method == crate::Method::Get);
@@ -326,5 +356,90 @@ mod test {
 
         assert!(super::parse_request_line("GET /hello").is_err());
         assert!(super::parse_request_line("qsd qsd qsd").is_err());
+    }
+
+    fn new_readline(line: &str) -> Result<Vec<String>, ReadError> 
+    {   
+        let mut line_itr = line.bytes().peekable();
+        let mut res = Vec::with_capacity(6);
+
+        while let Some(_) = line_itr.peek()
+        {
+            res.push(new_readline_int(&mut line_itr).map(|v| v.as_str().to_string())?);
+        }
+
+        return Ok(res);
+    }   
+
+    fn new_readline_int(line_itr: &mut Peekable<Bytes<'_>>) -> Result<AsciiString, ReadError> 
+    {
+        let mut buf = Vec::new();
+        let mut rn = [0_u8; 2];
+        let mut rn_p = 0;
+        const RNC: u16 = u16::from_le_bytes([b'\r', b'\n']);
+
+        
+        loop 
+        {
+            let cur_byte = 
+                line_itr.next()
+                    .ok_or_else(||
+                       ReadError::ReadIoError(IoError::new(ErrorKind::ConnectionAborted, "Unexpected EOF"))
+                    )?;
+
+            match rn_p
+            {
+                0 => 
+                {
+                    if cur_byte != b'\r' && cur_byte != b'\n'
+                    { // most times true
+                        buf.push(cur_byte);
+                    }
+                    else
+                    {
+                        rn[rn_p] = cur_byte;
+                        rn_p += 1;
+                    }
+                },
+                _ =>
+                {
+                    rn[rn_p] = cur_byte;
+
+                    if u16::from_le_bytes(rn) != RNC
+                    {
+                        // error
+                        return Err(ReadError::WrongRequestLine);
+                    }
+
+                    return
+                        AsciiString::from_ascii(buf)
+                            .map_err(|_| ReadError::ReadIoError(IoError::new(ErrorKind::InvalidInput, "Header is not in ASCII")));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_new_readline()
+    {
+        let vals = new_readline("Server: tiny-http (Rust)\r\n").unwrap();
+        assert_eq!(vals.len(), 1);
+        assert_eq!(vals.contains(&"Server: tiny-http (Rust)".into()), true);
+
+        let vals = new_readline("Server: tiny-http (Rust)\r\nContent-Type: text/plain; charset=UTF-8\r\n").unwrap();
+        assert_eq!(vals.len(), 2);
+        assert_eq!(vals.contains(&"Server: tiny-http (Rust)".into()), true);
+        assert_eq!(vals.contains(&"Content-Type: text/plain; charset=UTF-8".into()), true);
+
+        let vals = new_readline("Server: tiny-http (Rust)\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n").unwrap();
+        assert_eq!(vals.len(), 3);
+        assert_eq!(vals.contains(&"Server: tiny-http (Rust)".into()), true);
+        assert_eq!(vals.contains(&"Content-Type: text/plain; charset=UTF-8".into()), true);
+
+
+        assert_eq!(new_readline("Server: tiny-http (Rust)\r\r\n").is_err(), true);
+        assert_eq!(new_readline("Server: tiny-http (Rust)\n\r\n").is_err(), true);
+        assert_eq!(new_readline("Server: tiny-http\n(Rust)\r\n").is_err(), true);
+        assert_eq!(new_readline("GET / HTTP/1.1\r\nHost: x\r\nX-Test: aaa\nbbb\r\nConnection: close\r\n\r\n").is_err(), true);
     }
 }
