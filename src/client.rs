@@ -164,9 +164,14 @@ impl ClientConnection {
             .map_err(|e| 
                 {
                     use crate::request;
-                    match e {
-                        request::RequestCreationError::CreationIoError(e) => ReadError::ReadIoError(e),
-                        request::RequestCreationError::ExpectationFailed => {
+                    match e 
+                    {
+                        request::RequestCreationError::ProtocolViolation => 
+                            ReadError::WrongRequestLine, // 400
+                        request::RequestCreationError::CreationIoError(e) => 
+                            ReadError::ReadIoError(e),
+                        request::RequestCreationError::ExpectationFailed => 
+                        {
                             ReadError::ExpectationFailed(version)
                         }
                     }

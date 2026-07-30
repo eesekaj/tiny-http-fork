@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::Error as IoError;
 use std::io::{self, Cursor, ErrorKind, Read, Write};
 
@@ -9,6 +10,7 @@ use std::sync::mpsc::Sender;
 
 use crate::util::{EqualReader, FusedReader};
 use crate::{HTTPVersion, Header, Method, Response, StatusCode};
+use ascii::{AsciiChar, AsciiStr};
 use chunked_transfer::Decoder;
 
 /// Represents an HTTP request made by a client.
@@ -104,9 +106,13 @@ impl<R> Drop for NotifyOnDrop<R>
 
 /// Error that can happen when building a `Request` object.
 #[derive(Debug)]
-pub enum RequestCreationError {
+pub enum RequestCreationError 
+{
     /// The client sent an `Expect` header that was not recognized by tiny-http.
     ExpectationFailed,
+
+    /// For CVE-2026-66752 fix, by emmiting this, should be converted to error 400.
+    ProtocolViolation,
 
     /// Error while reading data from the socket during the creation of the `Request`.
     CreationIoError(IoError),
@@ -143,63 +149,84 @@ where
     W: Write + Send + 'static,
 {
     // finding the transfer-encoding header
-    let transfer_encoding = headers
-        .iter()
-        .find(|h: &&Header| h.field.equiv("Transfer-Encoding"))
-        .map(|h| h.value.clone());
+    let transfer_encoding_opt = 
+        headers
+            .iter()
+            .find(|h: &&Header| h.field.equiv("Transfer-Encoding"))
+            .map(|h| h.value.clone());
 
-    // finding the content-length header
-    let content_length = if transfer_encoding.is_some() {
-        // if transfer-encoding is specified, the Content-Length
-        // header must be ignored (RFC2616 #4.4)
-        None
-    } else {
+    let content_length: Option<usize> = 
         headers
             .iter()
             .find(|h: &&Header| h.field.equiv("Content-Length"))
-            .and_then(|h| FromStr::from_str(h.value.as_str()).ok())
-    };
+            .and_then(|h| FromStr::from_str(h.value.as_str()).ok());
+
+    // As it adviced in CVE-2026-66752: 
+    // "Reject a request that carries both Transfer-Encoding and Content-Length, as RFC 9112
+    // section 6.3 requires for a server that is not a proxy, instead of silently ignoring 
+    // Content-Length at line 150."
+    if transfer_encoding_opt.is_some() == true && content_length.is_some() == true
+    {
+        // reject
+        return Err(RequestCreationError::ProtocolViolation);
+    }
 
     // true if the client sent a `Expect: 100-continue` header
-    let expects_continue = {
-        match headers
-            .iter()
-            .find(|h: &&Header| h.field.equiv("Expect"))
-            .map(|h| h.value.as_str())
+    let expects_continue = 
         {
-            None => false,
-            Some(v) if v.eq_ignore_ascii_case("100-continue") => true,
-            _ => return Err(RequestCreationError::ExpectationFailed),
-        }
-    };
+            let res = 
+                headers
+                    .iter()
+                    .find(|h: &&Header| h.field.equiv("Expect"))
+                    .map(|h| h.value.as_str());
+
+            match res
+            {
+                None => 
+                    false,
+                Some(v) if v.eq_ignore_ascii_case("100-continue") => 
+                    true,
+                _ => 
+                    return Err(RequestCreationError::ExpectationFailed),
+            }
+        };
 
     // true if the client sent a `Connection: upgrade` header
-    let connection_upgrade = {
-        match headers
-            .iter()
-            .find(|h: &&Header| h.field.equiv("Connection"))
-            .map(|h| h.value.as_str())
+    let connection_upgrade = 
         {
-            Some(v) if v.to_ascii_lowercase().contains("upgrade") => true,
-            _ => false,
-        }
-    };
+            match headers
+                .iter()
+                .find(|h: &&Header| h.field.equiv("Connection"))
+                .map(|h| h.value.as_str())
+            {
+                Some(v) if v.to_ascii_lowercase().contains("upgrade") => true,
+                _ => false,
+            }
+        };
 
     // we wrap `source_data` around a reading whose nature depends on the transfer-encoding and
     // content-length headers
-    let reader = if connection_upgrade {
+    let reader = 
+    if connection_upgrade == true
+    {
         // if we have a `Connection: upgrade`, always keeping the whole reader
         Box::new(source_data) as Box<dyn Read + Send + 'static>
-    } else if let Some(content_length) = content_length {
-        if content_length == 0 {
+    } 
+    else if let Some(content_length) = content_length 
+    {
+        if content_length == 0 
+        {
             Box::new(io::empty()) as Box<dyn Read + Send + 'static>
-        } else if content_length <= 1024 && !expects_continue {
+        } 
+        else if content_length <= 1024 && expects_continue == false
+        {
             // if the content-length is small enough, we just read everything into a buffer
 
             let mut buffer = vec![0; content_length];
             let mut offset = 0;
 
-            while offset != content_length {
+            while offset != content_length 
+            {
                 let read = source_data.read(&mut buffer[offset..])?;
                 if read == 0 {
                     // the socket returned EOF, but we were before the expected content-length
@@ -213,15 +240,54 @@ where
             }
 
             Box::new(Cursor::new(buffer)) as Box<dyn Read + Send + 'static>
-        } else {
+        } 
+        else 
+        {
             let (data_reader, _) = EqualReader::new(source_data, content_length); // TODO:
             Box::new(FusedReader::new(data_reader)) as Box<dyn Read + Send + 'static>
         }
-    } else if transfer_encoding.is_some() {
-        // if a transfer-encoding was specified, then "chunked" is ALWAYS applied
-        // over the message (RFC2616 #3.6)
+    } 
+    else if let Some(transfer_encoding) = transfer_encoding_opt
+    {
+        // attempting to parse, I have no idea what was the point to use an asciistring, when a simple verification of the 
+        // String for ASCII range would be enough, and this complicates everything.
+        let params = 
+            transfer_encoding
+                .split(AsciiChar::Comma)
+                .map(|v| v.trim_start().as_str())
+                .collect::<Vec<&str>>();
+
+        // if I got it right the:
+        // Transfer-Encoding: gzip, chunked is valid
+        // Transfer-Encoding: chunked, gzip violates the spec
+        if params.is_empty() == true
+        {
+            // reject
+            return Err(RequestCreationError::ProtocolViolation);
+        }
+
+        // go though all params to detemine if there are invalid combinations
+        let mut hte: HashSet<&str> = HashSet::with_capacity(params.len());
+        for p in params.iter()
+        {
+            if hte.insert(p) == true
+            {
+                // reject duplicate
+                return Err(RequestCreationError::ProtocolViolation);
+            }
+        }
+        
+        // the last is chunked always
+        if params.last() != Some(&"chunked")
+        {
+            // reject duplicate
+            return Err(RequestCreationError::ProtocolViolation);
+        }
+
         Box::new(FusedReader::new(Decoder::new(source_data))) as Box<dyn Read + Send + 'static>
-    } else {
+    } 
+    else 
+    {
         // if we have neither a Content-Length nor a Transfer-Encoding,
         // assuming that we have no data
         // TODO: could also be multipart/byteranges
