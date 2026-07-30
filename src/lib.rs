@@ -353,8 +353,10 @@ impl Server {
                     Err(e) => Err(e),
                 };
 
-                match new_client {
-                    Ok(client) => {
+                match new_client 
+                {
+                    Ok(client) =>
+                    {
                         let messages = inside_messages.clone();
                         let mut client = Some(client);
                         tasks_pool.spawn(Box::new(move || {
@@ -373,15 +375,22 @@ impl Server {
                                 }
                             }
                         }));
-                    }
-
-                    Err(e) => {
+                    },
+                    Err(ref e) if e.kind() == IoErrorKind::ConnectionAborted =>
+                    {
+                        // A non-fatal error.  Log it, and try to accept
+                        // a new connection.
+                        log::debug!("Error accepting new client: {}", e);
+                    },
+                    Err(e) => 
+                    {
                         log::error!("Error accepting new client: {}", e);
                         inside_messages.push(e.into());
                         break;
                     }
                 }
             }
+            
             log::debug!("Terminating accept thread");
         });
 
