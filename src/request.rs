@@ -94,9 +94,11 @@ impl<R: Write> Write for NotifyOnDrop<R> {
         self.inner.flush()
     }
 }
-impl<R> Drop for NotifyOnDrop<R> {
-    fn drop(&mut self) {
-        self.sender.send(()).unwrap();
+impl<R> Drop for NotifyOnDrop<R> 
+{
+    fn drop(&mut self) 
+    {
+       let _ = self.sender.send(());
     }
 }
 
@@ -322,11 +324,14 @@ impl Request {
         self.response_writer.as_mut().unwrap().flush().ok(); // TODO: unused result
 
         let stream = CustomStream::new(self.extract_reader_impl(), self.extract_writer_impl());
-        if let Some(sender) = self.notify_when_responded.take() {
-            let stream = NotifyOnDrop {
-                sender,
-                inner: stream,
-            };
+        if let Some(sender) = self.notify_when_responded.take() 
+        {
+            let stream = 
+                NotifyOnDrop 
+                {
+                    sender,
+                    inner: stream,
+                };
             Box::new(stream) as Box<dyn ReadWrite + Send>
         } else {
             Box::new(stream) as Box<dyn ReadWrite + Send>
@@ -387,13 +392,17 @@ impl Request {
     /// the writing of the next response.
     /// Therefore you should always destroy the `Writer` as soon as possible.
     #[inline]
-    pub fn into_writer(mut self) -> Box<dyn Write + Send + 'static> {
+    pub fn into_writer(mut self) -> Box<dyn Write + Send + 'static> 
+    {
         let writer = self.extract_writer_impl();
-        if let Some(sender) = self.notify_when_responded.take() {
-            let writer = NotifyOnDrop {
-                sender,
-                inner: writer,
-            };
+        if let Some(sender) = self.notify_when_responded.take() 
+        {
+            let writer = 
+                NotifyOnDrop 
+                {
+                    sender,
+                    inner: writer,
+                };
             Box::new(writer) as Box<dyn Write + Send + 'static>
         } else {
             writer
@@ -434,8 +443,9 @@ impl Request {
         R: Read,
     {
         let res = self.respond_impl(response);
-        if let Some(sender) = self.notify_when_responded.take() {
-            sender.send(()).unwrap();
+        if let Some(sender) = self.notify_when_responded.take() 
+        {
+            let _ = sender.send(());
         }
         res
     }

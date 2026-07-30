@@ -151,13 +151,18 @@ where
     fn drop(&mut self) {
         let inner = mem::replace(&mut self.inner, SequentialReaderInner::Empty);
 
-        match inner {
-            SequentialReaderInner::MyTurn(reader) => {
+        match inner 
+        {
+            SequentialReaderInner::MyTurn(reader) => 
+            {
                 self.next.send(reader).ok();
             }
-            SequentialReaderInner::Waiting(recv) => {
-                let reader = recv.recv().unwrap();
-                self.next.send(reader).ok();
+            SequentialReaderInner::Waiting(recv) => 
+            {
+                if let Ok(reader) = recv.recv() 
+                {
+                    self.next.send(reader).ok();
+                }
             }
             SequentialReaderInner::Empty => (),
         }
