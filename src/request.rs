@@ -266,14 +266,19 @@ where
             return Err(RequestCreationError::ProtocolViolation);
         }
 
+        const KNOWN_TRANSFER_ENCS: &'static [&'static str] = &["chunked", "gzip", "deflate"];
+
         // go though all params to detemine if there are invalid combinations
-        let mut hte: HashSet<&str> = HashSet::with_capacity(params.len());
-        for p in params.iter()
+        if params.len() > 1
         {
-            if hte.insert(p) == true
+            let mut hte: HashSet<&&str> = KNOWN_TRANSFER_ENCS.into_iter().collect::<HashSet<&&str>>();
+            for p in params.iter()
             {
-                // reject duplicate
-                return Err(RequestCreationError::ProtocolViolation);
+                if hte.remove(p) == false
+                {
+                    // reject duplicate or unknown
+                    return Err(RequestCreationError::ProtocolViolation);
+                }
             }
         }
         

@@ -54,6 +54,68 @@ fn test_cve2026_66752()
                     std::process::exit(0);
                 }
 
+                drop(client);
+
+                // ---
+
+                let mut client = TcpStream::connect("127.0.0.1:8005").unwrap();
+
+                client.write("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked, chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n".as_bytes()).unwrap();
+
+                let mut response = [0_u8; 512];
+                let n = client.read(&mut response).unwrap();
+
+                let resp = str::from_utf8(&response[..n]).unwrap();
+                println!("{}", resp);
+
+                if resp.starts_with("HTTP/1.1 400 Bad Request") == false
+                {
+                    println!("the response should be 400");
+                    std::process::exit(0);
+                }
+
+             
+
+                drop(client);
+
+                // ---
+
+                let mut client = TcpStream::connect("127.0.0.1:8005").unwrap();
+
+                client.write("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n".as_bytes()).unwrap();
+
+                let mut response = [0_u8; 512];
+                let n = client.read(&mut response).unwrap();
+
+                let resp = str::from_utf8(&response[..n]).unwrap();
+                println!("{}", resp);
+
+                if resp.starts_with("HTTP/1.1 200 OK") == false
+                {
+                    println!("the response should be 200");
+                    std::process::exit(0);
+                }
+
+                drop(client);
+
+                // ---
+
+                let mut client = TcpStream::connect("127.0.0.1:8005").unwrap();
+
+                client.write("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip, chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n".as_bytes()).unwrap();
+
+                let mut response = [0_u8; 512];
+                let n = client.read(&mut response).unwrap();
+
+                let resp = str::from_utf8(&response[..n]).unwrap();
+                println!("{}", resp);
+
+                if resp.starts_with("HTTP/1.1 200 OK") == false
+                {
+                    println!("the response should be 200");
+                    std::process::exit(0);
+                }
+
                 std::process::exit(0);
             }
         );

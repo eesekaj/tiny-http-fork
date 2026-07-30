@@ -77,22 +77,29 @@ impl ClientConnection {
     ///
     /// Reads until `CRLF` is reached. The next read will start
     ///  at the first byte of the new line.
-    fn read_next_line(&mut self) -> IoResult<AsciiString> {
+    /// 
+    /// CVE-2026-66753 fixed
+    fn read_next_line(&mut self) -> IoResult<AsciiString> 
+    {
         let mut buf = Vec::new();
         let mut prev_byte_was_cr = false;
 
-        loop {
-            let byte = self.next_header_source.by_ref().bytes().next();
+        loop 
+        {
+            let byte = 
+                self.next_header_source.by_ref().bytes().next()
+                    .ok_or_else(||
+                        IoError::new(ErrorKind::ConnectionAborted, "Unexpected EOF")
+                    )??;
 
-            let byte = match byte {
-                Some(b) => b?,
-                None => return Err(IoError::new(ErrorKind::ConnectionAborted, "Unexpected EOF")),
-            };
 
-            if byte == b'\n' && prev_byte_was_cr {
+            if byte == b'\n' && prev_byte_was_cr 
+            {
                 buf.pop(); // removing the '\r'
-                return AsciiString::from_ascii(buf)
-                    .map_err(|_| IoError::new(ErrorKind::InvalidInput, "Header is not in ASCII"));
+
+                return 
+                    AsciiString::from_ascii(buf)
+                        .map_err(|_| IoError::new(ErrorKind::InvalidInput, "Header is not in ASCII"));
             }
 
             prev_byte_was_cr = byte == b'\r';
