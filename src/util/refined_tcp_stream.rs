@@ -118,7 +118,9 @@ impl Write for Stream {
     }
 }
 
-pub struct RefinedTcpStream {
+#[derive(Clone)]
+pub struct RefinedTcpStream 
+{
     stream: Stream,
     close_read: bool,
     close_write: bool,
@@ -157,6 +159,19 @@ impl RefinedTcpStream {
     pub(crate) fn peer_addr(&mut self) -> IoResult<Option<SocketAddr>> {
         self.stream.peer_addr()
     }
+
+    pub 
+    fn force_close_read(&mut self) 
+    {
+        let _ = self.stream.shutdown(Shutdown::Read);
+    }
+
+    pub 
+    fn force_close_write(&mut self) 
+    {
+        let _ = self.stream.shutdown(Shutdown::Write);
+    }
+
 }
 
 impl Drop for RefinedTcpStream {
