@@ -160,18 +160,6 @@ impl RefinedTcpStream {
         self.stream.peer_addr()
     }
 
-    pub 
-    fn force_close_read(&mut self) 
-    {
-        let _ = self.stream.shutdown(Shutdown::Read);
-    }
-
-    pub 
-    fn force_close_write(&mut self) 
-    {
-        let _ = self.stream.shutdown(Shutdown::Write);
-    }
-
 }
 
 impl Drop for RefinedTcpStream {

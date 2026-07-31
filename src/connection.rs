@@ -1,19 +1,54 @@
 //! Abstractions of Tcp and Unix socket types
 
 #[cfg(unix)]
-use std::os::unix::net as unix_net;
+use std::os::{fd::AsRawFd, unix::net as unix_net};
 use std::{
-    net::{Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
-    path::PathBuf,
+    net::{Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs}, os::fd::AsFd, path::PathBuf,
 };
 
 /// Unified listener. Either a [`TcpListener`] or [`std::os::unix::net::UnixListener`]
-pub enum Listener {
+#[derive(Debug)]
+pub enum Listener 
+{
     Tcp(TcpListener),
     #[cfg(unix)]
     Unix(unix_net::UnixListener),
 }
-impl Listener {
+
+#[cfg(unix)]
+impl AsFd for Listener
+{
+    fn as_fd(&self) -> std::os::unix::prelude::BorrowedFd<'_> 
+    {
+        match self
+        {
+            Listener::Tcp(tcp_listener) => 
+                tcp_listener.as_fd(),
+            #[cfg(unix)]
+            Listener::Unix(unix_listener) => 
+                unix_listener.as_fd(),
+        }
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for Listener
+{
+    fn as_raw_fd(&self) -> std::os::unix::prelude::RawFd 
+    {
+        match self
+        {
+            Listener::Tcp(tcp_listener) => 
+                tcp_listener.as_raw_fd(),
+            #[cfg(unix)]
+            Listener::Unix(unix_listener) => 
+                unix_listener.as_raw_fd(),
+        }
+    }
+}
+
+impl Listener 
+{
     pub(crate) fn local_addr(&self) -> std::io::Result<ListenAddr> {
         match self {
             Self::Tcp(l) => l.local_addr().map(ListenAddr::from),
@@ -32,71 +67,97 @@ impl Listener {
         }
     }
 }
-impl From<TcpListener> for Listener {
+impl From<TcpListener> for Listener 
+{
     fn from(s: TcpListener) -> Self {
         Self::Tcp(s)
     }
 }
+
 #[cfg(unix)]
-impl From<unix_net::UnixListener> for Listener {
-    fn from(s: unix_net::UnixListener) -> Self {
+impl From<unix_net::UnixListener> for Listener 
+{
+    fn from(s: unix_net::UnixListener) -> Self 
+    {
         Self::Unix(s)
     }
 }
 
 /// Unified connection. Either a [`TcpStream`] or [`std::os::unix::net::UnixStream`].
 #[derive(Debug)]
-pub(crate) enum Connection {
+pub(crate) enum Connection 
+{
     Tcp(TcpStream),
     #[cfg(unix)]
     Unix(unix_net::UnixStream),
 }
-impl std::io::Read for Connection {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self {
+
+impl std::io::Read for Connection 
+{
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.read(buf),
             #[cfg(unix)]
             Self::Unix(s) => s.read(buf),
         }
     }
 }
-impl std::io::Write for Connection {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
+
+impl std::io::Write for Connection 
+{
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.write(buf),
             #[cfg(unix)]
             Self::Unix(s) => s.write(buf),
         }
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
+    fn flush(&mut self) -> std::io::Result<()> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.flush(),
             #[cfg(unix)]
             Self::Unix(s) => s.flush(),
         }
     }
 }
-impl Connection {
+
+impl Connection 
+{
     /// Gets the peer's address. Some for TCP, None for Unix sockets.
-    pub(crate) fn peer_addr(&mut self) -> std::io::Result<Option<SocketAddr>> {
-        match self {
+    pub(crate) 
+    fn peer_addr(&mut self) -> std::io::Result<Option<SocketAddr>> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.peer_addr().map(Some),
             #[cfg(unix)]
             Self::Unix(_) => Ok(None),
         }
     }
 
-    pub(crate) fn shutdown(&self, how: Shutdown) -> std::io::Result<()> {
-        match self {
+    pub(crate) 
+    fn shutdown(&self, how: Shutdown) -> std::io::Result<()> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.shutdown(how),
             #[cfg(unix)]
             Self::Unix(s) => s.shutdown(how),
         }
     }
 
-    pub(crate) fn try_clone(&self) -> std::io::Result<Self> {
-        match self {
+    pub(crate) 
+    fn try_clone(&self) -> std::io::Result<Self> 
+    {
+        match self 
+        {
             Self::Tcp(s) => s.try_clone().map(Self::from),
             #[cfg(unix)]
             Self::Unix(s) => s.try_clone().map(Self::from),

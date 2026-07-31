@@ -95,7 +95,8 @@ fn invalid_header_name() {
 }
 
 #[test]
-fn custom_content_type_response_header() {
+fn custom_content_type_response_header() 
+{
     let (server, mut stream) = support::new_one_server_one_client();
     write!(
         stream,
@@ -104,6 +105,7 @@ fn custom_content_type_response_header() {
     .unwrap();
 
     let request = server.recv().unwrap();
+    
     request
         .respond(
             tiny_http::Response::from_string("{\"custom\": \"Content-Type\"}").with_header(
@@ -115,7 +117,8 @@ fn custom_content_type_response_header() {
         .unwrap();
 
     let mut content = String::new();
-    stream.read_to_string(&mut content).unwrap();
+    let n = stream.read_to_string(&mut content).unwrap();
+    println!("{}", n);
 
     assert!(content.ends_with("{\"custom\": \"Content-Type\"}"));
     assert_ne!(content.find("Content-Type: application/json"), None);

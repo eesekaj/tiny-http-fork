@@ -2,11 +2,14 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-enum Control<T> {
+#[derive(Debug)]
+enum Control<T> 
+{
     Elem(T),
     Unblock,
 }
 
+#[derive(Debug)]
 pub struct MessagesQueue<T>
 where
     T: Send,
