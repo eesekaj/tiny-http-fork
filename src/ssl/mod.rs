@@ -5,6 +5,16 @@
 //! trait contract and specific implementations are re-exported as [`SslContextImpl`] and [`SslStream`].
 //! The concrete type of these aliases will depend on which module you enable in `Cargo.toml`.
 
+#[cfg(any(
+    all(feature = "ssl-openssl", feature = "ssl-rustls"),
+    all(feature = "ssl-openssl", feature = "ssl-native-tls"),
+    all(feature = "ssl-native-tls", feature = "ssl-rustls"),
+))]
+compile_error!(
+    "Only one feature from 'ssl-openssl', 'ssl-rustls', 'ssl-native-tls' can be enabled at the same time"
+);
+
+
 #[cfg(feature = "ssl-openssl")]
 pub(crate) mod openssl;
 #[cfg(feature = "ssl-openssl")]
@@ -12,12 +22,15 @@ pub(crate) use self::openssl::OpenSslContext as SslContextImpl;
 #[cfg(feature = "ssl-openssl")]
 pub(crate) use self::openssl::SplitOpenSslStream as SslStream;
 
+
 #[cfg(feature = "ssl-rustls")]
 pub(crate) mod rustls;
 #[cfg(feature = "ssl-rustls")]
-pub(crate) use self::rustls::RustlsContext as SslContextImpl;
+pub(crate) type SslContextImpl = rustls::RustlsContext;
 #[cfg(feature = "ssl-rustls")]
-pub(crate) use self::rustls::RustlsStream as SslStream;
+pub(crate) type SslStream = rustls::RustlsStream;
+
+
 
 #[cfg(feature = "ssl-native-tls")]
 pub(crate) mod native_tls;

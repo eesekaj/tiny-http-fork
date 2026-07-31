@@ -264,14 +264,7 @@ impl Server {
         };
 
         // building the SSL capabilities
-        #[cfg(any(
-            all(feature = "ssl-openssl", feature = "ssl-rustls"),
-            all(feature = "ssl-openssl", feature = "ssl-native-tls"),
-            all(feature = "ssl-native-tls", feature = "ssl-rustls"),
-        ))]
-        compile_error!(
-            "Only one feature from 'ssl-openssl', 'ssl-rustls', 'ssl-native-tls' can be enabled at the same time"
-        );
+
         #[cfg(not(any(
             feature = "ssl-openssl",
             feature = "ssl-rustls",
@@ -283,7 +276,7 @@ impl Server {
             feature = "ssl-rustls",
             feature = "ssl-native-tls"
         ))]
-        type SslContext = crate::ssl::SslContextImpl;
+        type SslContext = ssl::SslContextImpl;
         let ssl: Option<SslContext> = {
             match ssl_config {
                 #[cfg(any(

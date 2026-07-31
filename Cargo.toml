@@ -1,6 +1,6 @@
 [package]
 name = "tiny_http"
-version = "1.0.0"
+version = "1.12.0"
 authors = ["pierre.krieger1708@gmail.com","Corey Farwell <coreyf@rwell.org>", "Aleksandr Morozov <alex@4neko.org>"]
 description = "Low level HTTP server library FORK"
 documentation = "https://tiny-http.github.io/tiny-http/tiny_http/index.html"
@@ -12,10 +12,11 @@ rust-version = "1.85"
 
 [features]
 default = ["log"]
-ssl = ["ssl-openssl"]
-ssl-openssl = ["openssl", "zeroize"]
-ssl-rustls = ["rustls", "rustls-pemfile", "zeroize"]
-ssl-native-tls = ["native-tls", "zeroize"]
+
+ssl = ["ssl-rustls"]
+ssl-openssl = ["dep:openssl", "dep:zeroize"]
+ssl-rustls = ["dep:rustls", "dep:rustls-pemfile", "dep:zeroize"]
+ssl-native-tls = ["dep:native-tls", "dep:zeroize"]
 
 [dependencies]
 ascii = "1.1"
@@ -36,4 +37,28 @@ fdlimit = "0.3"
 
 [package.metadata.docs.rs]
 # Enable just one SSL implementation
-features = ["ssl-openssl"]
+features = ["ssl-rustls"]
+
+[[example]]
+name = "hello-world"
+required-features = ["log"]
+
+[[example]]
+name = "php-cgi"
+required-features = ["log"]
+
+[[example]]
+name = "readme-example"
+required-features = ["log"]
+
+[[example]]
+name = "serve-root"
+required-features = ["log"]
+
+[[example]]
+name = "ssl"
+required-features = ["log", "ssl-rustls"]
+
+[[example]]
+name = "websockets"
+required-features = ["log"]
