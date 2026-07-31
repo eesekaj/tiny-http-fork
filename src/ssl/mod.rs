@@ -18,9 +18,9 @@ compile_error!(
 #[cfg(feature = "ssl-openssl")]
 pub(crate) mod openssl;
 #[cfg(feature = "ssl-openssl")]
-pub(crate) use self::openssl::OpenSslContext as SslContextImpl;
+pub(crate) type SslContextImpl = openssl::OpenSslContext;
 #[cfg(feature = "ssl-openssl")]
-pub(crate) use self::openssl::SplitOpenSslStream as SslStream;
+pub(crate) type SslStream = openssl::SplitOpenSslStream;
 
 
 #[cfg(feature = "ssl-rustls")]
@@ -35,6 +35,6 @@ pub(crate) type SslStream = rustls::RustlsStream;
 #[cfg(feature = "ssl-native-tls")]
 pub(crate) mod native_tls;
 #[cfg(feature = "ssl-native-tls")]
-pub(crate) use self::native_tls::NativeTlsContext as SslContextImpl;
+pub(crate) type SslContextImpl = native_tls::NativeTlsContext;
 #[cfg(feature = "ssl-native-tls")]
-pub(crate) use self::native_tls::NativeTlsStream as SslStream;
+pub(crate) type SslStream = native_tls::NativeTlsStream ;
