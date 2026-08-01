@@ -42,7 +42,9 @@ fn encode_chunked(data: &mut dyn Read, output: &mut dyn Write) {
 }
 
 mod prompt_pipelining {
-    use super::*;
+    use std::net::SocketAddr;
+
+use super::*;
 
     /// Check that pipelined requests on the same connection are received promptly.
     fn assert_requests_parsed_promptly(
@@ -57,7 +59,20 @@ mod prompt_pipelining {
         }; // very slow response body
 
         let server = Server::http("0.0.0.0:0").unwrap();
-        let mut client = TcpStream::connect(server.server_addr().to_ip().unwrap()).unwrap();
+
+        let  mut server_ip = server.server_addr().to_ip().unwrap();
+        server_ip = 
+            if server_ip.ip().is_unspecified() == true
+            {
+                // BSD fix, it does not want to connect to 0.0.0.0:port
+                SocketAddr::new("127.0.0.1".parse().unwrap(), server_ip.port())
+            }
+            else
+            {
+                server_ip
+            };
+
+        let mut client = TcpStream::connect(server_ip).unwrap();
         let (svr_send, svr_rcv) = channel();
 
         spawn(move || {
@@ -135,7 +150,10 @@ mod prompt_pipelining {
 }
 
 mod prompt_responses {
-    use super::*;
+
+use std::net::SocketAddr;
+
+use super::*;
 
     /// Check that response is sent promptly without waiting for full request body.
     fn assert_responds_promptly(
@@ -143,7 +161,19 @@ mod prompt_responses {
         req_writer: impl FnOnce(&mut dyn Write) + Send + 'static,
     ) {
         let server = Server::http("0.0.0.0:0").unwrap();
-        let client = TcpStream::connect(server.server_addr().to_ip().unwrap()).unwrap();
+        let  mut server_ip = server.server_addr().to_ip().unwrap();
+        server_ip = 
+            if server_ip.ip().is_unspecified() == true
+            {
+                // BSD fix, it does not want to connect to 0.0.0.0:port
+                SocketAddr::new("127.0.0.1".parse().unwrap(), server_ip.port())
+            }
+            else
+            {
+                server_ip
+            };
+
+        let client = TcpStream::connect(server_ip).unwrap();
 
         spawn(move || loop {
             // server attempts to respond immediately
