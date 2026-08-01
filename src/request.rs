@@ -10,7 +10,7 @@ use std::sync::mpsc::Sender;
 
 use crate::util::{EqualReader, FusedReader};
 use crate::{HTTPVersion, Header, Method, Response, StatusCode};
-use ascii::{AsciiChar, AsciiStr};
+use ascii::{AsciiChar};
 use chunked_transfer::Decoder;
 
 /// Represents an HTTP request made by a client.

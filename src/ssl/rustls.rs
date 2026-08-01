@@ -64,6 +64,7 @@ impl Write for RustlsStream {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct RustlsContext(Arc<rustls::ServerConfig>);
 // https://github.com/rustls/rustls/blob/ffc409744860b9f0300ee85d7be7971f65da818b/examples/src/bin/simpleserver.rs
 impl RustlsContext 

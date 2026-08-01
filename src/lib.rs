@@ -98,18 +98,7 @@
 ))]
 use zeroize::Zeroizing;
 
-#[cfg(not(any(
-    feature = "ssl-openssl",
-    feature = "ssl-rustls",
-    feature = "ssl-native-tls"
-)))]
-type SslContext = ();
-#[cfg(any(
-    feature = "ssl-openssl",
-    feature = "ssl-rustls",
-    feature = "ssl-native-tls"
-))]
-type SslContext = ssl::SslContextImpl;
+
 
 use std::error::Error;
 use std::io;
@@ -145,6 +134,63 @@ mod response;
 mod ssl;
 mod test;
 pub mod util;
+
+#[cfg(not(any(
+    feature = "ssl-openssl",
+    feature = "ssl-rustls",
+    feature = "ssl-native-tls"
+)))]
+type SslContext = ();
+#[cfg(any(
+    feature = "ssl-openssl",
+    feature = "ssl-rustls",
+    feature = "ssl-native-tls"
+))]
+type SslContext = ssl::SslContextImpl;
+
+#[derive(Debug)]
+pub struct SslContextWrap(Option<SslContext>);
+
+
+impl SslContextWrap
+{
+    pub 
+    fn build_ssl_capabilities(ssl_config: Option<SslConfig>) 
+        -> Result<Self, Box<dyn Error + Send + Sync>>
+    {
+        // building the SSL capabilities
+        let ssl: Option<SslContext> = 
+            {
+                match ssl_config 
+                {
+                    #[cfg(any(
+                        feature = "ssl-openssl",
+                        feature = "ssl-rustls",
+                        feature = "ssl-native-tls"
+                    ))]
+                    Some(config) => 
+                        Some(
+                            SslContext::from_pem(config.certificate,
+                            Zeroizing::new(config.private_key))?
+                        ),
+                    #[cfg(not(any(
+                        feature = "ssl-openssl",
+                        feature = "ssl-rustls",
+                        feature = "ssl-native-tls"
+                    )))]
+                    Some(_) => 
+                        return Err(
+                            "Building a server with SSL requires enabling the `ssl` feature in tiny-http"
+                                .into(),
+                        ),
+                    None => 
+                        None,
+                }
+            };
+
+        return Ok(Self(ssl));
+    }
+}
 
 /// The main class of this library.
 ///
@@ -280,54 +326,20 @@ impl Server
         Self::from_listener(listener, config.ssl)
     }
 
-    pub 
-    fn build_ssl_capabilities(ssl_config: Option<SslConfig>) -> Result<Option<SslContext>, String>
-    {
-        // building the SSL capabilities
-        let ssl: Option<SslContext> = 
-            {
-                match ssl_config 
-                {
-                    #[cfg(any(
-                        feature = "ssl-openssl",
-                        feature = "ssl-rustls",
-                        feature = "ssl-native-tls"
-                    ))]
-                    Some(config) => 
-                        Some(SslContext::from_pem(
-                            config.certificate,
-                            Zeroizing::new(config.private_key),
-                        )?),
-                    #[cfg(not(any(
-                        feature = "ssl-openssl",
-                        feature = "ssl-rustls",
-                        feature = "ssl-native-tls"
-                    )))]
-                    Some(_) => 
-                        return Err(
-                            "Building a server with SSL requires enabling the `ssl` feature in tiny-http"
-                                .into(),
-                        ),
-                    None => 
-                        None,
-                }
-            };
-
-        return Ok(ssl);
-    }
+    
 
     /// Accepts the incoming connection.
     /// 
     /// This function has visibility `pub` which is a part of effort to move from the 
     /// thread per client model, to POLL + task assignment.
     pub 
-    fn accept_connection(server: &Listener, ssl: Option<&SslContext>) -> Result<ClientConnection, IoError>
+    fn accept_connection(server: &Listener, ssl: &SslContextWrap) -> Result<Option<ClientConnection>, IoError>
     {
         let (sock, _) = server.accept()?;
 
         use util::RefinedTcpStream;
         let (read_closable, write_closable) = 
-            match ssl 
+            match ssl.0
             {
                 None => 
                     RefinedTcpStream::new(sock),
@@ -340,10 +352,12 @@ impl Server
                 {
                     // trying to apply SSL over the connection
                     // if an error occurs, we just close the socket and resume listening
-                    let sock = match ssl.accept(sock) {
-                        Ok(s) => s,
-                        Err(_) => continue,
-                    };
+                    let Ok(sock) = ssl.accept(sock) 
+                        else
+                        {
+                            return Ok(None);
+                        };
+
 
                     RefinedTcpStream::new(sock)
                 }
@@ -357,7 +371,7 @@ impl Server
             };
 
         return 
-            Ok(ClientConnection::new(write_closable, read_closable));
+            Ok( Some(ClientConnection::new(write_closable, read_closable)) );
     }
 
     /// Initializes a thread for a freshly accepted client.
@@ -365,14 +379,14 @@ impl Server
     /// ToDo, replace the tasks_pool with polling of client socket + async without tokio
     pub 
     fn new_client(
-        new_client: Result<ClientConnection, IoError>,
+        new_client: Result<Option<ClientConnection>, IoError>,
         inside_messages: &Arc<MessagesQueue<Message>>,
         tasks_pool: &TaskPool
     ) -> io::Result<()>
     {
         match new_client 
         {
-            Ok(client) =>
+            Ok(Some(client)) =>
             {
                 let messages = inside_messages.clone();
                 let mut client = Some(client);
@@ -408,6 +422,8 @@ impl Server
 
                 return Ok(());
             },
+            Ok(None) => 
+                return Ok(()),
             Err(ref e) if e.kind() == IoErrorKind::ConnectionAborted =>
             {
                 // A non-fatal error.  Log it, and try to accept
@@ -443,7 +459,7 @@ impl Server
         log::debug!("Server listening on {}", local_addr);
 
         // building the SSL capabilities
-        let ssl: Option<SslContext> = Self::build_ssl_capabilities(ssl_config)?;
+        let ssl= SslContextWrap::build_ssl_capabilities(ssl_config)?;
 
         // creating a task where server.accept() is continuously called
         // and ClientConnection objects are pushed in the messages queue
@@ -462,7 +478,7 @@ impl Server
                 while inside_close_trigger.load(Relaxed) == false
                 {
                     let new_client = 
-                        Self::accept_connection(&server, ssl.as_ref());
+                        Self::accept_connection(&server, &ssl);
 
                     if let Err(_) = Self::new_client(new_client, &inside_messages, &tasks_pool)
                     {

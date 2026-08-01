@@ -62,6 +62,7 @@ impl Write for OpenSslStream {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct OpenSslContext(openssl::ssl::SslContext);
 
 impl OpenSslContext {

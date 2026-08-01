@@ -56,6 +56,7 @@ impl Write for NativeTlsStream {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct NativeTlsContext(native_tls::TlsAcceptor);
 
 impl NativeTlsContext {
