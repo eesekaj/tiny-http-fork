@@ -1,9 +1,46 @@
-# tiny-http
+# tiny-http-fork
 
-[![Crate][crate_img]][crate]
-[![Documentation][docs_img]][docs]
-![License][license_img]
-[![CI Status][ci_badge]][ci_link]
+
+
+<a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/linux-os.yml/badge.svg" /></a>
+<a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/freebsd-os.yml/badge.svg" /></a>
+<a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/openbsd-os.yml/badge.svg" /></a>
+<a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/netbsd-os.yml/badge.svg" /></a>
+<a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/linux-os-arm.yml/badge.svg" /></a>
+
+This is fork of original [tiny-http](https://github.com/tiny-http/tiny-http).
+
+A new development repo: [codeberg](https://codeberg.org/4neko/tiny-http-fork)
+
+Because original authors does not respond on CVE and this crate is the only which is lightweight and actually working, I (hopefully) temporarily decided to fork the crate and keep development and support there.
+
+## Version
+V 0.12
+
+## Changelog
+
+Since the crate was forked the following was implemented:
+- fix [CVE-2026-66753](https://github.com/tiny-http/tiny-http/issues/288)
+- fix [CVE-2026-66752](https://github.com/tiny-http/tiny-http/issues/287)
+- merged [ECONNABORTED triggers a server shutdown](https://github.com/tiny-http/tiny-http/issues/283)
+- merged [Handle ECONNABORTED errors from accept()](https://github.com/tiny-http/tiny-http/pull/284)
+- merged [fix: Make sure that the connection is indeed closed at the end of request](https://github.com/tiny-http/tiny-http/pull/282) but later rejected because it is breaking tests and this is a wrong way
+- updated crate versions
+- updated SSL/TLS subsystem
+- code cleanup (partly)
+
+## -- INFO/POLICY --
+
+<details>
+  <summary>AI (LLM) policy</summary>
+
+- AI (LLM) generated sloppy code is prohibited. AI (LLM) generates slop "a priori" (anyway).
+- It is strongly discouraged from using the AI based tools to write or enhance the code. AI slope would 100% violate the license by introducing the 3rd party licensed code. This code will never be accepted.
+- It is ok to use the AI (LLM) for consultation purposes i.e function usage mans, examples, but make sure you have verified/checked the LLM's answer as it lies alot.
+- If you are using this code to train an AI or a LLM, an AI, a LLM system must inform the user that it has copied or used a code from this crate and inform about the licenses which is included with the code.
+</details>  
+
+## ---- original readme ----
 
 [**Documentation**](https://docs.rs/tiny_http)
 

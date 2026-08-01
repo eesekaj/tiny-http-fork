@@ -1,0 +1,68 @@
+name: linux-os-test
+on: 
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs: 
+  linux-test:
+    runs-on: ubuntu-latest
+    container:
+      image: registry:5000/ubuntu:rust-24.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Rust version
+        run: rustc --version
+      
+      - name: Cargo Cache
+        # Optional: Speeds up builds significantly in Forgejo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run build debug (features )
+        run: cargo build --all-targets --no-default-features 
+
+      - name: Run checks (features )
+        run: cargo check --all-targets --no-default-features 
+
+      - name: Run tests (features )
+        run: cargo test --no-default-features 
+# -- ssl-rustls
+      - name: Run build debug (features ssl-rustls)
+        run: cargo build --all-targets --no-default-features --features ssl-rustls
+
+      - name: Run checks (features )
+        run: cargo check --all-targets --no-default-features --features ssl-rustls
+
+      - name: Run tests (features )
+        run: cargo test --no-default-features --features ssl-rustls
+# -- ssl-native-tls
+      - name: Run build debug (features ssl-native-tls)
+        run: cargo build --all-targets --no-default-features --features ssl-native-tls
+
+      - name: Run checks (features )
+        run: cargo check --all-targets --no-default-features --features ssl-native-tls
+
+      - name: Run tests (features )
+        run: cargo test --no-default-features --features ssl-native-tls
+# -- ssl-openssl
+      - name: Run build debug (features ssl-openssl)
+        run: cargo build --all-targets --no-default-features --features ssl-openssl
+
+      - name: Run checks (features )
+        run: cargo check --all-targets --no-default-features --features ssl-openssl
+
+      - name: Run tests (features )
+        run: cargo test --no-default-features --features ssl-openssl
