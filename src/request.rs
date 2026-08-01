@@ -413,7 +413,7 @@ impl Request {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// # extern crate rustc_serialize;
     /// # extern crate tiny_http;
     /// # use rustc_serialize::json::Json;

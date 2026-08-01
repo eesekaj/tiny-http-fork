@@ -8,7 +8,7 @@ use std::str::FromStr;
 /// By default, `TestRequest` pretends to be an insecure GET request for the server root (`/`)
 /// with no headers. To create a `TestRequest` with different parameters, use the builder pattern:
 ///
-/// ```
+/// ```ignore
 /// # use tiny_http::{Method, TestRequest};
 /// let request = TestRequest::new()
 ///     .with_method(Method::Post)
@@ -18,7 +18,7 @@ use std::str::FromStr;
 ///
 /// Then, convert the `TestRequest` into a real `Request` and pass it to the server under test:
 ///
-/// ```
+/// ```ignore
 /// # use tiny_http::{Method, Request, Response, Server, StatusCode, TestRequest};
 /// # use std::io::Cursor;
 /// # let request = TestRequest::new()

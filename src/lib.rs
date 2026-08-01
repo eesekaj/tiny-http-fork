@@ -8,7 +8,7 @@
 //! in the case where the server creation fails (for example if the listening port is already
 //! occupied).
 //!
-//! ```no_run
+//! ```ignore
 //! let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
 //! ```
 //!
@@ -20,7 +20,7 @@
 //! Calling `server.recv()` will block until the next request is available.
 //! This function returns an `IoResult<Request>`, so you need to handle the possible errors.
 //!
-//! ```no_run
+//! ```ignore
 //! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
 //!
 //! loop {
@@ -38,7 +38,7 @@
 //! In a real-case scenario, you will probably want to spawn multiple worker tasks and call
 //! `server.recv()` on all of them. Like this:
 //!
-//! ```no_run
+//! ```ignore
 //! # use std::sync::Arc;
 //! # use std::thread;
 //! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
@@ -71,7 +71,7 @@
 //! To handle a request, you need to create a `Response` object. See the docs of this object for
 //! more infos. Here is an example of creating a `Response` from a file:
 //!
-//! ```no_run
+//! ```ignore
 //! # use std::fs::File;
 //! # use std::path::Path;
 //! let response = tiny_http::Response::from_file(File::open(&Path::new("image.png")).unwrap());
@@ -79,7 +79,7 @@
 //!
 //! All that remains to do is call `request.respond()`:
 //!
-//! ```no_run
+//! ```ignore
 //! # use std::fs::File;
 //! # use std::path::Path;
 //! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();

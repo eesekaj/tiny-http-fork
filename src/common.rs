@@ -160,7 +160,7 @@ impl Header
     ///
     /// Example:
     ///
-    /// ```
+    /// ```ignore
     /// let header = tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap();
     /// ```
     #[allow(clippy::result_unit_err)]

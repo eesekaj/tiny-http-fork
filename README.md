@@ -1,7 +1,5 @@
 # tiny-http-fork
 
-
-
 <a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/linux-os.yml/badge.svg" /></a>
 <a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/freebsd-os.yml/badge.svg" /></a>
 <a href = "https://codeberg.org/4neko/tiny-http-fork/actions"><img src="https://codeberg.org/4neko/tiny-http-fork/badges/workflows/openbsd-os.yml/badge.svg" /></a>
@@ -13,6 +11,8 @@ This is fork of original [tiny-http](https://github.com/tiny-http/tiny-http).
 A new development repo: [codeberg](https://codeberg.org/4neko/tiny-http-fork)
 
 Because original authors does not respond on CVE and this crate is the only which is lightweight and actually working, I (hopefully) temporarily decided to fork the crate and keep development and support there.
+
+The LICENSES which were initially were preserved and published under the same licenses.
 
 ## Version
 V 0.12
@@ -37,7 +37,7 @@ Since the crate was forked the following was implemented:
 - AI (LLM) generated sloppy code is prohibited. AI (LLM) generates slop "a priori" (anyway).
 - It is strongly discouraged from using the AI based tools to write or enhance the code. AI slope would 100% violate the license by introducing the 3rd party licensed code. This code will never be accepted.
 - It is ok to use the AI (LLM) for consultation purposes i.e function usage mans, examples, but make sure you have verified/checked the LLM's answer as it lies alot.
-- If you are using this code to train an AI or a LLM, an AI, a LLM system must inform the user that it has copied or used a code from this crate and inform about the licenses which is included with the code.
+
 </details>  
 
 ## ---- original readme ----
