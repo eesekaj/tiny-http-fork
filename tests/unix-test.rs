@@ -2,18 +2,24 @@
 
 extern crate tiny_http;
 
+
 use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
 };
 
+use tempfile::TempDir;
+
 #[allow(dead_code)]
 mod support;
 
 #[test]
-fn unix_basic_handling() {
-    let server = tiny_http::Server::http_unix(Path::new("/tmp/tiny-http-test.sock")).unwrap();
+fn unix_basic_handling() 
+{
+    let tempdir = TempDir::new().unwrap();
+    let p = tempdir.path().join("tiny-http-test.sock");
+    let server = tiny_http::Server::http_unix(&p).unwrap();
     let path: PathBuf = server
         .server_addr()
         .to_unix()

@@ -64,14 +64,13 @@ jobs:
             rustc --version
             cargo build --all-targets --no-default-features 
             cargo check --all-targets --no-default-features 
-            cargo test --no-default-features 
+            cargo test --verbose --no-default-features 
             cargo build --all-targets --no-default-features --features ssl-rustls
             cargo check --all-targets --no-default-features --features ssl-rustls
-            cargo test --no-default-features --features ssl-rustls
+            cargo test --verbose --no-default-features --features ssl-rustls
             cargo build --all-targets --no-default-features --features ssl-native-tls
             cargo check --all-targets --no-default-features --features ssl-native-tls
-            cargo test --no-default-features --features ssl-native-tls
+            cargo test --verbose --no-default-features --features ssl-native-tls
             cargo build --all-targets --no-default-features --features ssl-openssl
             cargo check --all-targets --no-default-features --features ssl-openssl
-            cargo test --no-default-features --features ssl-openssl
-            
+            cargo test --verbose --no-default-features --features ssl-openssl
