@@ -1,6 +1,7 @@
 use crate::connection::Connection;
 use crate::util::refined_tcp_stream::Stream as RefinedStream;
 use std::error::Error;
+use std::fmt;
 use std::io::{Read, Write};
 use std::net::{Shutdown, SocketAddr};
 use std::sync::{Arc, Mutex};
@@ -56,8 +57,16 @@ impl Write for NativeTlsStream {
     }
 }
 
-#[derive(Debug)]
+
 pub(crate) struct NativeTlsContext(native_tls::TlsAcceptor);
+
+impl fmt::Debug for NativeTlsContext
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
+    {
+        f.debug_tuple("NativeTlsContext").finish()
+    }
+}
 
 impl NativeTlsContext {
     pub fn from_pem(
