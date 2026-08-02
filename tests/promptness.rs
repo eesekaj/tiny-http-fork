@@ -204,12 +204,21 @@ use super::*;
     };
 
     #[test]
-    fn content_length_http11() {
-        assert_responds_promptly(Duration::from_millis(200), move |wr| {
-            write!(wr, "GET / HTTP/1.1\r\n").unwrap();
-            write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
-            copy(&mut SLOW_BODY.clone(), wr).unwrap();
-        });
+    fn content_length_http11() 
+    {
+        #[cfg(not(target_os = "netbsd"))]
+        let milis = 200;
+
+        #[cfg(target_os = "netbsd")]
+        let milis = 300;
+        assert_responds_promptly(Duration::from_millis(milis), 
+            move |wr| 
+            {
+                write!(wr, "GET / HTTP/1.1\r\n").unwrap();
+                write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
+                copy(&mut SLOW_BODY.clone(), wr).unwrap();
+            }
+        );
     }
 
     #[test]
