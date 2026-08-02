@@ -1,6 +1,6 @@
 [package]
 name = "tiny_http"
-version = "0.12.4"
+version = "0.12.5"
 authors = ["pierre.krieger1708@gmail.com","Corey Farwell <coreyf@rwell.org>", "Aleksandr Morozov <alex@4neko.org>"]
 description = "Low level HTTP server library FORK"
 documentation = "https://tiny-http.github.io/tiny-http/tiny_http/index.html"

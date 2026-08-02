@@ -177,13 +177,16 @@ impl From<unix_net::UnixStream> for Connection {
 }
 
 #[derive(Debug, Clone)]
-pub enum ConfigListenAddr {
+pub enum ConfigListenAddr 
+{
     IP(Vec<SocketAddr>),
     #[cfg(unix)]
     // TODO: use SocketAddr when bind_addr is stabilized
     Unix(std::path::PathBuf),
 }
-impl ConfigListenAddr {
+
+impl ConfigListenAddr 
+{
     pub fn from_socket_addrs<A: ToSocketAddrs>(addrs: A) -> std::io::Result<Self> {
         addrs.to_socket_addrs().map(|it| Self::IP(it.collect()))
     }
@@ -193,23 +196,42 @@ impl ConfigListenAddr {
         Self::Unix(path.into())
     }
 
-    pub(crate) fn bind(&self) -> std::io::Result<Listener> {
-        match self {
-            Self::IP(a) => TcpListener::bind(a.as_slice()).map(Listener::from),
+    pub(crate) 
+    fn bind(&self) -> std::io::Result<(Listener, ListenAddr)> 
+    {
+        match self 
+        {
+            Self::IP(a) => 
+            {
+                let bind = TcpListener::bind(a.as_slice()).map(Listener::from)?;
+
+                let la = bind.local_addr()?;
+
+                Ok((bind, la))
+            },
             #[cfg(unix)]
-            Self::Unix(a) => unix_net::UnixListener::bind(a).map(Listener::from),
+            Self::Unix(a) => 
+            {
+                let la = unix_net::SocketAddr::from_pathname(a)?;
+                let bind = unix_net::UnixListener::bind(a).map(Listener::from)?;
+
+                Ok((bind, ListenAddr::Unix(la)))
+            }
         }
     }
 }
 
 /// Unified listen socket address. Either a [`SocketAddr`] or [`std::os::unix::net::SocketAddr`].
 #[derive(Debug, Clone)]
-pub enum ListenAddr {
+pub enum ListenAddr 
+{
     IP(SocketAddr),
     #[cfg(unix)]
     Unix(unix_net::SocketAddr),
 }
-impl ListenAddr {
+
+impl ListenAddr 
+{
     pub fn to_ip(self) -> Option<SocketAddr> {
         match self {
             Self::IP(s) => Some(s),

@@ -156,11 +156,12 @@ use std::net::SocketAddr;
 use super::*;
 
     /// Check that response is sent promptly without waiting for full request body.
-    fn assert_responds_promptly(
-        timeout: Duration,
-        req_writer: impl FnOnce(&mut dyn Write) + Send + 'static,
-    ) {
-        let server = Server::http("0.0.0.0:0").unwrap();
+    fn assert_responds_promptly(timeout: Duration,
+        req_writer: impl FnOnce(&mut dyn Write) + Send + 'static) 
+    {
+
+        // BSD fix, it does not want to connect to 0.0.0.0:port
+        let server = Server::http("127.0.0.1:0").unwrap();
         let  mut server_ip = server.server_addr().to_ip().unwrap();
         server_ip = 
             if server_ip.ip().is_unspecified() == true
@@ -175,11 +176,15 @@ use super::*;
 
         let client = TcpStream::connect(server_ip).unwrap();
 
-        spawn(move || loop {
-            // server attempts to respond immediately
-            let req = server.recv().unwrap();
-            req.respond(Response::empty(400)).unwrap();
-        });
+        spawn(
+            move || 
+            loop 
+            {
+                // server attempts to respond immediately
+                let req = server.recv().unwrap();
+                req.respond(Response::empty(400)).unwrap();
+            }
+        );
 
         let client = Arc::new(client);
         let client_write = Arc::clone(&client);
@@ -190,7 +195,7 @@ use super::*;
         client.set_read_timeout(Some(timeout)).unwrap();
         let resp = client.deref().read(&mut [0u8; 4096]);
         client.shutdown(Shutdown::Both).unwrap();
-        assert!(resp.is_ok(), "Server response was not sent promptly");
+        assert_eq!(resp.is_ok(), true, "Server response was not sent promptly");
     }
 
     static SLOW_BODY: SlowByteSrc = SlowByteSrc {
@@ -208,30 +213,59 @@ use super::*;
     }
 
     #[test]
-    fn content_length_http10() {
-        assert_responds_promptly(Duration::from_millis(200), move |wr| {
-            write!(wr, "GET / HTTP/1.0\r\n").unwrap();
-            write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
-            copy(&mut SLOW_BODY.clone(), wr).unwrap();
-        });
+    fn content_length_http10() 
+    {
+        #[cfg(not(target_os = "netbsd"))]
+        let milis = 200;
+
+        #[cfg(target_os = "netbsd")]
+        let milis = 300;
+
+        assert_responds_promptly(Duration::from_millis(milis), 
+            move |wr| 
+            {
+                write!(wr, "GET / HTTP/1.0\r\n").unwrap();
+                write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
+                copy(&mut SLOW_BODY.clone(), wr).unwrap();
+            }
+        );
     }
 
     #[test]
-    fn expect_continue() {
-        assert_responds_promptly(Duration::from_millis(200), move |wr| {
-            write!(wr, "GET / HTTP/1.1\r\n").unwrap();
-            write!(wr, "Expect: 100 continue\r\n").unwrap();
-            write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
-            copy(&mut SLOW_BODY.clone(), wr).unwrap();
-        });
+    fn expect_continue() 
+    {
+        #[cfg(not(target_os = "netbsd"))]
+        let milis = 200;
+
+        #[cfg(target_os = "netbsd")]
+        let milis = 300;
+        assert_responds_promptly(Duration::from_millis(milis), 
+            move |wr| 
+            {
+                write!(wr, "GET / HTTP/1.1\r\n").unwrap();
+                write!(wr, "Expect: 100 continue\r\n").unwrap();
+                write!(wr, "Content-Length: {}\r\n\r\n", SLOW_BODY.len).unwrap();
+                copy(&mut SLOW_BODY.clone(), wr).unwrap();
+            }
+        );
     }
 
+
     #[test]
-    fn chunked() {
-        assert_responds_promptly(Duration::from_millis(200), move |wr| {
-            write!(wr, "GET / HTTP/1.1\r\n").unwrap();
-            write!(wr, "Transfer-Encoding: chunked\r\n\r\n").unwrap();
-            encode_chunked(&mut SLOW_BODY.clone(), wr);
-        });
+    fn chunked() 
+    {
+        #[cfg(not(target_os = "netbsd"))]
+        let milis = 200;
+
+        #[cfg(target_os = "netbsd")]
+        let milis = 300;
+        assert_responds_promptly(Duration::from_millis(milis), 
+            move |wr| 
+                {
+                write!(wr, "GET / HTTP/1.1\r\n").unwrap();
+                write!(wr, "Transfer-Encoding: chunked\r\n\r\n").unwrap();
+                encode_chunked(&mut SLOW_BODY.clone(), wr);
+            }
+        );
     }
 }

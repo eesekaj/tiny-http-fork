@@ -106,6 +106,8 @@ use std::io::Error as IoError;
 use std::io::ErrorKind as IoErrorKind;
 use std::io::Result as IoResult;
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+#[cfg(unix)]
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::mpsc;
@@ -305,14 +307,12 @@ impl Server
     #[inline]
     /// Shortcut for a UNIX socket server at a specific path
     pub 
-    fn http_unix(
-        path: &std::path::Path,
-    ) -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
+    fn http_unix<P: AsRef<Path>>(path: P) -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
     {
         Server::new(
             ServerConfig 
             {
-                addr: ConfigListenAddr::unix_from_path(path),
+                addr: ConfigListenAddr::unix_from_path(path.as_ref()),
                 ssl: None,
             }
         )
@@ -322,8 +322,8 @@ impl Server
     pub 
     fn new(config: ServerConfig) -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
     {
-        let listener = config.addr.bind()?;
-        Self::from_listener(listener, config.ssl)
+        let (listener, la) = config.addr.bind()?;
+        Self::from_listener(listener, la, config.ssl)
     }
 
     
@@ -448,14 +448,15 @@ impl Server
     /// This is useful if you've constructed TcpListener using some less usual method
     /// such as from systemd. For other cases, you probably want the `new()` function.
     pub 
-    fn from_listener<L: Into<Listener>>(listener: L, ssl_config: Option<SslConfig>) 
+    fn from_listener<L: Into<Listener>>(listener: L, local_addr: ListenAddr, ssl_config: Option<SslConfig>) 
         -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
     {
         let server = listener.into();
         // building the "close" variable
         let close_trigger = Arc::new(AtomicBool::new(false));
 
-        let local_addr = server.local_addr()?;
+        // local addr does not work on OpenBSD
+        //let local_addr: ListenAddr = config.addr.into();
         log::debug!("Server listening on {}", local_addr);
 
         // building the SSL capabilities
