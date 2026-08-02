@@ -9,7 +9,7 @@ use std::str::FromStr;
 /// with no headers. To create a `TestRequest` with different parameters, use the builder pattern:
 ///
 /// ```ignore
-/// # use tiny_http::{Method, TestRequest};
+/// # use tiny_http_fork::{Method, TestRequest};
 /// let request = TestRequest::new()
 ///     .with_method(Method::Post)
 ///     .with_path("/api/widgets")
@@ -19,7 +19,7 @@ use std::str::FromStr;
 /// Then, convert the `TestRequest` into a real `Request` and pass it to the server under test:
 ///
 /// ```ignore
-/// # use tiny_http::{Method, Request, Response, Server, StatusCode, TestRequest};
+/// # use tiny_http_fork::{Method, Request, Response, Server, StatusCode, TestRequest};
 /// # use std::io::Cursor;
 /// # let request = TestRequest::new()
 /// #     .with_method(Method::Post)

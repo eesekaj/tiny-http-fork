@@ -1,6 +1,6 @@
 #![cfg(unix)]
 
-extern crate tiny_http;
+extern crate tiny_http_fork;
 
 
 use std::{
@@ -19,7 +19,7 @@ fn unix_basic_handling()
 {
     let tempdir = TempDir::new().unwrap();
     let p = tempdir.path().join("tiny-http-test.sock");
-    let server = tiny_http::Server::http_unix(&p).unwrap();
+    let server = tiny_http_fork::Server::http_unix(&p).unwrap();
     let path: PathBuf = server
         .server_addr()
         .to_unix()
@@ -36,10 +36,10 @@ fn unix_basic_handling()
     .unwrap();
 
     let request = server.recv().unwrap();
-    assert!(*request.method() == tiny_http::Method::Get);
+    assert!(*request.method() == tiny_http_fork::Method::Get);
     //assert!(request.url() == "/");
     request
-        .respond(tiny_http::Response::from_string("hello world".to_owned()))
+        .respond(tiny_http_fork::Response::from_string("hello world".to_owned()))
         .unwrap();
 
     server.try_recv().unwrap();

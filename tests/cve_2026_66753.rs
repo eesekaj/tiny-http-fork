@@ -1,7 +1,7 @@
-extern crate tiny_http;
+extern crate tiny_http_fork;
 
 use std::{io::{Read, Write}, net::TcpStream, time::Duration};
-use tiny_http::{Header, Response, Server};
+use tiny_http_fork::{Header, Response, Server};
 
 
 #[test]

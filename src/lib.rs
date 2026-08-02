@@ -9,7 +9,7 @@
 //! occupied).
 //!
 //! ```ignore
-//! let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
+//! let server = tiny_http_fork::Server::http("0.0.0.0:0").unwrap();
 //! ```
 //!
 //! A newly-created `Server` will immediately start listening for incoming connections and HTTP
@@ -21,7 +21,7 @@
 //! This function returns an `IoResult<Request>`, so you need to handle the possible errors.
 //!
 //! ```ignore
-//! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
+//! # let server = tiny_http_fork::Server::http("0.0.0.0:0").unwrap();
 //!
 //! loop {
 //!     // blocks until the next request is received
@@ -41,7 +41,7 @@
 //! ```ignore
 //! # use std::sync::Arc;
 //! # use std::thread;
-//! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
+//! # let server = tiny_http_fork::Server::http("0.0.0.0:0").unwrap();
 //! let server = Arc::new(server);
 //! let mut guards = Vec::with_capacity(4);
 //!
@@ -74,7 +74,7 @@
 //! ```ignore
 //! # use std::fs::File;
 //! # use std::path::Path;
-//! let response = tiny_http::Response::from_file(File::open(&Path::new("image.png")).unwrap());
+//! let response = tiny_http_fork::Response::from_file(File::open(&Path::new("image.png")).unwrap());
 //! ```
 //!
 //! All that remains to do is call `request.respond()`:
@@ -82,9 +82,9 @@
 //! ```ignore
 //! # use std::fs::File;
 //! # use std::path::Path;
-//! # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
+//! # let server = tiny_http_fork::Server::http("0.0.0.0:0").unwrap();
 //! # let request = server.recv().unwrap();
-//! # let response = tiny_http::Response::from_file(File::open(&Path::new("image.png")).unwrap());
+//! # let response = tiny_http_fork::Response::from_file(File::open(&Path::new("image.png")).unwrap());
 //! let _ = request.respond(response);
 //! ```
 #![forbid(unsafe_code)]

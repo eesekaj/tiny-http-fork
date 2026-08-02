@@ -1,4 +1,4 @@
-extern crate tiny_http;
+extern crate tiny_http_fork;
 
 use std::io::{copy, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -7,7 +7,7 @@ use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::thread::{sleep, spawn};
 use std::time::Duration;
-use tiny_http::{Response, Server};
+use tiny_http_fork::{Response, Server};
 
 /// Stream that produces bytes very slowly
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

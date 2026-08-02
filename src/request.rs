@@ -415,12 +415,12 @@ impl Request {
     ///
     /// ```ignore
     /// # extern crate rustc_serialize;
-    /// # extern crate tiny_http;
+    /// # extern crate tiny_http_fork;
     /// # use rustc_serialize::json::Json;
     /// # use std::io::Read;
-    /// # fn get_content_type(_: &tiny_http::Request) -> &'static str { "" }
+    /// # fn get_content_type(_: &tiny_http_fork::Request) -> &'static str { "" }
     /// # fn main() {
-    /// # let server = tiny_http::Server::http("0.0.0.0:0").unwrap();
+    /// # let server = tiny_http_fork::Server::http("0.0.0.0:0").unwrap();
     /// let mut request = server.recv().unwrap();
     ///
     /// if get_content_type(&request) == "application/json" {

@@ -20,7 +20,7 @@ Because original authors does not respond on CVE and this crate is the only whic
 The LICENSES which were initially were preserved and published under the same licenses.
 
 ## Version
-V 0.12
+V 0.12.7-crate
 
 ## Changelog
 
@@ -47,7 +47,7 @@ Since the crate was forked the following was implemented:
 
 ## ---- original readme ----
 
-[**Documentation**](https://docs.rs/tiny_http)
+[**Documentation**](https://docs.rs/tiny_http_fork)
 
 Tiny but strong HTTP server in Rust.
 Its main objectives are to be 100% compliant with the HTTP standard and to provide an easy way to create an HTTP server.
@@ -73,13 +73,13 @@ Add this to the `Cargo.toml` file of your project:
 
 ```toml
 [dependencies]
-tiny_http = "0.11"
+tiny_http_fork = "0.11"
 ```
 
 ### Usage
 
 ```rust
-use tiny_http::{Server, Response};
+use tiny_http_fork::{Server, Response};
 
 let server = Server::http("0.0.0.0:8000").unwrap();
 
@@ -141,10 +141,10 @@ for inclusion in tiny-http by you, as defined in the Apache-2.0 license, shall b
 dual licensed as above, without any additional terms or conditions.
 
 <!-- Links and Badges -->
-[crate_img]: https://img.shields.io/crates/v/tiny_http.svg?logo=rust "Crate Page"
-[crate]: https://crates.io/crates/tiny_http "Crate Link"
-[docs]: https://docs.rs/tiny_http "Documentation"
-[docs_img]: https://docs.rs/tiny_http/badge.svg "Documentation"
-[license_img]: https://img.shields.io/crates/l/tiny_http.svg "License"
+[crate_img]: https://img.shields.io/crates/v/tiny_http_fork.svg?logo=rust "Crate Page"
+[crate]: https://crates.io/crates/tiny_http_fork "Crate Link"
+[docs]: https://docs.rs/tiny_http_fork "Documentation"
+[docs_img]: https://docs.rs/tiny_http_fork/badge.svg "Documentation"
+[license_img]: https://img.shields.io/crates/l/tiny_http_fork.svg "License"
 [ci_badge]: https://github.com/tiny-http/tiny-http/actions/workflows/ci.yaml/badge.svg "CI Status"
 [ci_link]: https://github.com/tiny-http/tiny-http/actions/workflows/ci.yaml "Workflow Link"

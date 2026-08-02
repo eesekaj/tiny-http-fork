@@ -161,7 +161,7 @@ impl Header
     /// Example:
     ///
     /// ```ignore
-    /// let header = tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap();
+    /// let header = tiny_http_fork::Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap();
     /// ```
     #[allow(clippy::result_unit_err)]
     pub fn from_bytes<B1, B2>(header: B1, value: B2) -> Result<Header, ()>

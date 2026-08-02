@@ -1,12 +1,12 @@
 [package]
-name = "tiny_http"
-version = "0.12.6"
+name = "tiny_http_fork"
+version = "0.12.7"
 authors = ["pierre.krieger1708@gmail.com","Corey Farwell <coreyf@rwell.org>", "Aleksandr Morozov <alex@4neko.org>"]
 description = "Low level HTTP server library FORK"
-documentation = "https://tiny-http.github.io/tiny-http/tiny_http/index.html"
+documentation = "https://tiny-http.github.io/tiny-http/tiny_http_fork/index.html"
 keywords = ["http", "server", "web"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/tiny-http/tiny-http-fork"
+repository = "https://codeberg.org/4neko/tiny-http-fork"
 edition = "2024"
 rust-version = "1.85"
 

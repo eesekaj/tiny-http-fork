@@ -1,7 +1,7 @@
-extern crate tiny_http;
+extern crate tiny_http_fork;
 
 use std::{io::{Read, Write}, net::TcpStream, time::Duration};
-use tiny_http::{Response, Server};
+use tiny_http_fork::{Response, Server};
 
 /*
 HTTP/1.1 400 Bad Request
