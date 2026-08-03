@@ -147,9 +147,17 @@ impl PartialOrd<StatusCode> for u16 {
     }
 }
 
+#[derive(Debug)]
+pub enum HeaderError<B>
+{
+    AsciiError(FromAsciiError<B>),
+    ProtocolViolation,
+}
+
 /// Represents a HTTP header.
 #[derive(Debug, Clone)]
-pub struct Header {
+pub struct Header 
+{
     pub field: HeaderField,
     pub value: AsciiString,
 }
@@ -172,42 +180,40 @@ impl Header
         let header = HeaderField::from_bytes(header).or(Err(()))?;
         let value = AsciiString::from_ascii(value).or(Err(()))?;
 
-        const NOT_CHARS: &'static [char] = &['"','(',')',',','/',':',';','<','=','>','?','@','[','\\',']','{','}','\''];
+        let value_trimmed = value.trim();
+
+        
         
         // reject values containing 0x0D, 0x0A or 0x00,
         // reject field names containing anything outside the RFC 9110 token set:
         //   Tokens are short textual identifiers that do not include whitespace or delimiters
         //    US-ASCII visual characters not allowed in a token (DQUOTE and "(),/:;<=>?@[\]{}").
-        if value.as_bytes().iter().any(|ch| *ch == b'\x0d' || *ch == b'\x0a' || *ch == b'\x00') == true
-        {
-            return Err(());
-        }
-        else if false ==
-            header.0.as_str().chars()
-                .all(|ch| 
-                    ch.is_ascii_alphanumeric() == true ||  NOT_CHARS.contains(&ch) == false
-                ) 
+        if value_trimmed.as_bytes().iter().any(|ch| *ch == b'\x0d' || *ch == b'\x0a' || *ch == b'\x00') == true
         {
             return Err(());
         }
 
-        return Ok( Header{ field: header, value } );
+        return Ok( Header{ field: header, value: value_trimmed.to_ascii_string() } );
     }
 }
 
-impl FromStr for Header {
+impl FromStr for Header 
+{
     type Err = ();
 
     fn from_str(input: &str) -> Result<Header, ()> {
         let mut elems = input.splitn(2, ':');
-
-        let field = elems.next().and_then(|f| f.parse().ok()).ok_or(())?;
+        let field = elems.next().ok_or(())?;
+        let value = elems.next().ok_or(())?;
+        
+        return Self::from_bytes(field, value);
+        /*let field = elems.next().and_then(|f| f.parse().ok()).ok_or(())?;
         let value = elems
             .next()
             .and_then(|v| AsciiString::from_ascii(v.trim()).ok())
-            .ok_or(())?;
+            .ok_or(())?;*/
 
-        Ok(Header { field, value })
+       // Ok(Header { field, value })
     }
 }
 
@@ -223,32 +229,57 @@ impl Display for Header {
 #[derive(Debug, Clone, Eq)]
 pub struct HeaderField(AsciiString);
 
-impl HeaderField {
-    pub fn from_bytes<B>(bytes: B) -> Result<HeaderField, FromAsciiError<B>>
+impl HeaderField 
+{
+    pub 
+    fn from_bytes<B>(bytes: B) -> Result<HeaderField, HeaderError<B>>
     where
         B: Into<Vec<u8>> + AsRef<[u8]>,
     {
-        AsciiString::from_ascii(bytes).map(HeaderField)
+        // reject values containing 0x0D, 0x0A or 0x00,
+        // reject field names containing anything outside the RFC 9110 token set:
+        //   Tokens are short textual identifiers that do not include whitespace or delimiters
+        //    US-ASCII visual characters not allowed in a token (DQUOTE and "(),/:;<=>?@[\]{}").
+        const NOT_CHARS: &'static [char] = 
+            &['"', '(', ')', ',' ,'/', ':', ';', '<', '=', '>', '?', '@', '[',
+                '\\', ']', '{', '}', '\'', '`'];
+
+        let ascii_str = 
+            AsciiString::from_ascii(bytes).map_err(|e| HeaderError::AsciiError(e))?;
+
+        if false ==
+            ascii_str.as_str().chars()
+                .all(|ch| 
+                    (ch.is_ascii_alphanumeric() == true || ch == '-') &&
+                    (NOT_CHARS.contains(&ch) == false || ch.is_ascii_whitespace() == false)
+                ) 
+        {
+            return Err(HeaderError::ProtocolViolation);
+        }
+
+        return Ok(HeaderField(ascii_str));
     }
 
-    pub fn as_str(&self) -> &AsciiStr {
+    pub 
+    fn as_str(&self) -> &AsciiStr 
+    {
         &self.0
     }
 
-    pub fn equiv(&self, other: &'static str) -> bool {
+    pub 
+    fn equiv(&self, other: &'static str) -> bool 
+    {
         other.eq_ignore_ascii_case(self.as_str().as_str())
     }
 }
 
-impl FromStr for HeaderField {
+impl FromStr for HeaderField 
+{
     type Err = ();
 
-    fn from_str(s: &str) -> Result<HeaderField, ()> {
-        if s.contains(char::is_whitespace) {
-            Err(())
-        } else {
-            AsciiString::from_ascii(s).map(HeaderField).map_err(|_| ())
-        }
+    fn from_str(s: &str) -> Result<HeaderField, Self::Err> 
+    {
+        HeaderField::from_bytes(s).map_err(|_e| ())
     }
 }
 
