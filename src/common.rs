@@ -187,8 +187,17 @@ impl Header
         // reject values containing 0x0D, 0x0A or 0x00,
         // reject field names containing anything outside the RFC 9110 token set:
         //   Tokens are short textual identifiers that do not include whitespace or delimiters
-        //    US-ASCII visual characters not allowed in a token (DQUOTE and "(),/:;<=>?@[\]{}").
-        if value_trimmed.as_bytes().iter().any(|ch| *ch == b'\x0d' || *ch == b'\x0a' || *ch == b'\x00') == true
+        // Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
+        //    U+0030 '0' ..= U+0039 '9'.
+        // OR
+        // The following special characters: U+0021 ..= U+002F ! " # $ % & ' ( ) * + , - . /, or
+        //    U+003A ..= U+0040 : ; < = > ? @, or U+005B ..= U+0060 [ \ ] ^ _ `, or
+        //    U+007B ..= U+007E { | } ~
+        if false == 
+            value_trimmed.as_bytes()
+                .iter()
+                .all(|ch| ch.is_ascii_alphanumeric() == true || ch.is_ascii_punctuation() == true ||
+                    *ch == b' ')
         {
             return Err(());
         }
@@ -240,9 +249,8 @@ impl HeaderField
         // reject field names containing anything outside the RFC 9110 token set:
         //   Tokens are short textual identifiers that do not include whitespace or delimiters
         //    US-ASCII visual characters not allowed in a token (DQUOTE and "(),/:;<=>?@[\]{}").
-        const NOT_CHARS: &'static [char] = 
-            &['"', '(', ')', ',' ,'/', ':', ';', '<', '=', '>', '?', '@', '[',
-                '\\', ']', '{', '}', '\'', '`'];
+        // - Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
+        //    U+0030 '0' ..= U+0039 '9'. or - or _
 
         let ascii_str = 
             AsciiString::from_ascii(bytes).map_err(|e| HeaderError::AsciiError(e))?;
@@ -250,8 +258,7 @@ impl HeaderField
         if false ==
             ascii_str.as_str().chars()
                 .all(|ch| 
-                    (ch.is_ascii_alphanumeric() == true || ch == '-') &&
-                    (NOT_CHARS.contains(&ch) == false || ch.is_ascii_whitespace() == false)
+                    ch.is_ascii_alphanumeric() == true || ch == '-' || ch == '_'
                 ) 
         {
             return Err(HeaderError::ProtocolViolation);
