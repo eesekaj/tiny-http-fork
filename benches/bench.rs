@@ -1,0 +1,88 @@
+extern crate tiny_http_fork;
+
+use std::io::Write;
+use divan::Bencher;
+use tiny_http_fork::{Method, config::ServerConfig};
+
+
+
+fn main() 
+{
+    // Run registered benchmarks.
+    divan::main();
+}
+
+#[divan::bench]
+fn sequential_requests(bencher: Bencher) 
+{
+    let cfg = 
+        ServerConfig::new_http("127.0.0.1:0")
+            .unwrap()
+            .set_min_threads(4)
+            .set_max_threads(64);
+
+    let server = tiny_http_fork::Server::new(cfg).unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+
+   
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+
+    bencher
+        .bench_local(
+            move || 
+            {
+                write!(stream, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+
+                let request = server.recv().unwrap();
+
+                assert_eq!(request.method(), &Method::Get);
+
+                request.respond(tiny_http_fork::Response::new_empty(tiny_http_fork::StatusCode(204))).unwrap();    
+            }
+        );
+}
+
+#[divan::bench]
+fn parallel_requests(bencher: Bencher) 
+{
+    fdlimit::raise_fd_limit().unwrap();
+
+    let cfg = 
+        ServerConfig::new_http("127.0.0.1:0")
+            .unwrap()
+            .set_min_threads(4)
+            .set_max_threads(64);
+
+    let server = tiny_http_fork::Server::new(cfg).unwrap();
+    let port = server.server_addr().to_ip().unwrap().port();
+
+    bencher
+        .bench_local(
+            move || 
+            {
+                let mut streams = Vec::new();
+
+                for _ in 0..1000usize {
+                    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+                    (write!(
+                        stream,
+                        "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+                    ))
+                    .unwrap();
+                    streams.push(stream);
+                }
+
+                loop {
+                    let request = match server.try_recv().unwrap() {
+                        None => break,
+                        Some(rq) => rq,
+                    };
+
+                    assert_eq!(request.method(), &Method::Get);
+
+                    request.respond(tiny_http_fork::Response::new_empty(tiny_http_fork::StatusCode(204))).unwrap();
+                }
+            }
+        );
+}
+

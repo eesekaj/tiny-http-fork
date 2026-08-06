@@ -1,13 +1,3 @@
-pub use self::custom_stream::CustomStream;
-pub use self::equal_reader::EqualReader;
-pub use self::fused_reader::FusedReader;
-pub use self::messages_queue::MessagesQueue;
-pub use self::refined_tcp_stream::RefinedTcpStream;
-pub use self::sequential::{SequentialReader, SequentialReaderBuilder};
-pub use self::sequential::{SequentialWriter, SequentialWriterBuilder};
-pub use self::task_pool::TaskPool;
-
-use std::str::FromStr;
 
 mod custom_stream;
 mod equal_reader;
@@ -15,7 +5,31 @@ mod fused_reader;
 mod messages_queue;
 pub(crate) mod refined_tcp_stream;
 mod sequential;
-mod task_pool;
+
+#[cfg(feature = "task_pool_legacy")]
+mod task_pool_legacy;
+
+#[cfg(feature = "task_pool_channel")]
+mod task_pool_channel;
+
+pub use self::custom_stream::CustomStream;
+pub use self::equal_reader::EqualReader;
+pub use self::fused_reader::FusedReader;
+pub use self::messages_queue::MessagesQueue;
+pub use self::refined_tcp_stream::RefinedTcpStream;
+pub use self::sequential::{SequentialReader, SequentialReaderBuilder};
+pub use self::sequential::{SequentialWriter, SequentialWriterBuilder};
+
+/// A legacy `taskpool` implementation.
+#[cfg(feature = "task_pool_legacy")]
+pub use self::task_pool_legacy::TaskPool;
+
+/// A new `taskpool` implementation.
+#[cfg(feature = "task_pool_channel")]
+pub use self::task_pool_channel::TaskPool;
+
+use std::str::FromStr;
+
 
 /// Parses a the value of a header.
 /// Suitable for `Accept-*`, `TE`, etc.

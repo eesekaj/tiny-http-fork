@@ -66,13 +66,12 @@ impl Write for RustlsStream {
 
 #[derive(Debug)]
 pub(crate) struct RustlsContext(Arc<rustls::ServerConfig>);
-// https://github.com/rustls/rustls/blob/ffc409744860b9f0300ee85d7be7971f65da818b/examples/src/bin/simpleserver.rs
+
 impl RustlsContext 
 { 
-    pub(crate) fn from_pem(
-        certificates: Vec<u8>,
-        private_key: Zeroizing<Vec<u8>>,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> 
+    pub(crate) 
+    fn from_pem(certificates: Vec<u8>, private_key: Zeroizing<Vec<u8>>) 
+        -> Result<Self, Box<dyn Error + Send + Sync>> 
     {
         let certificate_chain: Vec<rustls::pki_types::CertificateDer<'static>,> =
             rustls_pemfile::certs(&mut certificates.as_slice())
@@ -86,26 +85,30 @@ impl RustlsContext
         
         let private_key = PrivateKeyDer::from_pem_slice(&private_key).unwrap();
 
-        let tls_conf = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(certificate_chain, private_key)?;
+        let tls_conf = 
+            rustls::ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(certificate_chain, private_key)?;
 
         Ok(Self(Arc::new(tls_conf)))
     }
 
-    pub(crate) fn accept(
-        &self,
-        stream: Connection,
-    ) -> Result<RustlsStream, Box<dyn Error + Send + Sync + 'static>> {
+    pub(crate) fn accept(&self, stream: Connection,) -> Result<RustlsStream, Box<dyn Error + Send + Sync + 'static>> 
+    {
         let connection = rustls::ServerConnection::new(self.0.clone())?;
-        Ok(RustlsStream(Arc::new(Mutex::new(
-            rustls::StreamOwned::new(connection, stream),
-        ))))
+        
+        Ok(
+            RustlsStream(
+                Arc::new(Mutex::new(rustls::StreamOwned::new(connection, stream)))
+            )
+        )
     }
 }
 
-impl From<RustlsStream> for RefinedStream {
-    fn from(stream: RustlsStream) -> Self {
+impl From<RustlsStream> for RefinedStream 
+{
+    fn from(stream: RustlsStream) -> Self 
+    {
         Self::Https(stream)
     }
 }

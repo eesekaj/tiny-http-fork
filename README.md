@@ -20,7 +20,7 @@ Because original authors does not respond on CVE and this crate is the only whic
 The LICENSES which were initially were preserved and published under the same licenses.
 
 ## Version
-V 0.12.7-crate
+V 0.12.9-crate
 
 ## Changelog
 
@@ -44,6 +44,27 @@ Since the crate was forked the following was implemented:
 - It is ok to use the AI (LLM) for consultation purposes i.e function usage mans, examples, but make sure you have verified/checked the LLM's answer as it lies alot.
 
 </details>  
+
+## benching
+
+### task_pool_legacy
+
+```text
+Timer precision: 10 ns
+bench                   fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ parallel_requests    Server listening on 127.0.0.1:36525
+Running accept thread
+38.78 ms      │ 64.13 ms      │ 40.18 ms      │ 40.8 ms       │ 100     │ 100
+╰─ sequential_requests  Server listening on 127.0.0.1:33833
+Running accept thread
+15.4 µs       │ 83.4 µs       │ 15.89 µs      │ 17.24 µs      │ 100     │ 100
+```
+
+### task_pool_channel
+
+```text
+
+```
 
 ## ---- original readme ----
 

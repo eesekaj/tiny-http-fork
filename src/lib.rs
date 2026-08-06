@@ -87,9 +87,20 @@
 //! # let response = tiny_http_fork::Response::from_file(File::open(&Path::new("image.png")).unwrap());
 //! let _ = request.respond(response);
 //! ```
-#![forbid(unsafe_code)]
+//#![forbid(unsafe_code)] // removed because an alarm code is required, will be returned  back when XIO-RS will be ready
 #![deny(rust_2018_idioms)]
 #![allow(clippy::match_like_matches_macro)]
+
+mod client;
+mod common;
+mod connection;
+mod log;
+mod request;
+mod response;
+mod ssl;
+mod test;
+pub mod util;
+pub mod config;
 
 #[cfg(any(
     feature = "ssl-openssl",
@@ -105,7 +116,7 @@ use std::io;
 use std::io::Error as IoError;
 use std::io::ErrorKind as IoErrorKind;
 use std::io::Result as IoResult;
-use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -116,7 +127,6 @@ use std::thread;
 use std::time::Duration;
 
 use client::ClientConnection;
-use connection::Connection;
 use util::MessagesQueue;
 
 pub use common::{HTTPVersion, Header, HeaderField, Method, StatusCode};
@@ -125,17 +135,11 @@ pub use request::{ReadWrite, Request};
 pub use response::{Response, ResponseBox};
 pub use test::TestRequest;
 
+use crate::config::ServerConfig;
+use crate::config::SslConfig;
 use crate::util::TaskPool;
 
-mod client;
-mod common;
-mod connection;
-mod log;
-mod request;
-mod response;
-mod ssl;
-mod test;
-pub mod util;
+
 
 #[cfg(not(any(
     feature = "ssl-openssl",
@@ -210,7 +214,7 @@ pub struct Server
     messages: Arc<MessagesQueue<Message>>,
 
     // result of TcpListener::local_addr()
-    listening_addr: ListenAddr,
+    listening_addr: Option<ListenAddr>,
 }
 
 #[derive(Debug)]
@@ -248,39 +252,29 @@ pub struct IncomingRequests<'a>
     server: &'a Server,
 }
 
-/// Represents the parameters required to create a server.
-#[derive(Debug, Clone)]
-pub struct ServerConfig 
-{
-    /// The addresses to try to listen to.
-    pub addr: ConfigListenAddr,
-
-    /// If `Some`, then the server will use SSL to encode the communications.
-    pub ssl: Option<SslConfig>,
-}
-
-/// Configuration of the server for SSL.
-#[derive(Debug, Clone)]
-pub struct SslConfig 
-{
-    /// Contains the public certificate to send to clients.
-    pub certificate: Vec<u8>,
-    /// Contains the ultra-secret private key used to decode communications.
-    pub private_key: Vec<u8>,
-}
 
 impl Server 
 {
     /// Shortcut for a simple server on a specific address.
     #[inline]
-    pub fn http<A>(addr: A) -> Result<Server, Box<dyn Error + Send + Sync + 'static>>
+    pub 
+    fn http<A>(addr: A) -> Result<Server, Box<dyn Error + Send + Sync + 'static>>
     where
         A: ToSocketAddrs,
     {
-        Server::new(ServerConfig {
-            addr: ConfigListenAddr::from_socket_addrs(addr)?,
-            ssl: None,
-        })
+        Server::new(
+            ServerConfig 
+            {
+                addr: 
+                    ConfigListenAddr::from_socket_addrs(addr)?,
+                ssl: 
+                    None,
+                min_threads: 
+                    None,
+                max_threads: 
+                    None,
+            }
+        )
     }
 
     /// Shortcut for an HTTPS server on a specific address.
@@ -297,10 +291,19 @@ impl Server
     where
         A: ToSocketAddrs,
     {
-        Server::new(ServerConfig {
-            addr: ConfigListenAddr::from_socket_addrs(addr)?,
-            ssl: Some(config),
-        })
+        Server::new(
+            ServerConfig 
+            {
+                addr: 
+                    ConfigListenAddr::from_socket_addrs(addr)?,
+                ssl: 
+                    Some(config),
+                min_threads: 
+                    None,
+                max_threads: 
+                    None,
+            }
+        )
     }
 
     #[cfg(unix)]
@@ -312,8 +315,14 @@ impl Server
         Server::new(
             ServerConfig 
             {
-                addr: ConfigListenAddr::unix_from_path(path.as_ref()),
-                ssl: None,
+                addr: 
+                    ConfigListenAddr::unix_from_path(path.as_ref()),
+                ssl: 
+                    None,
+                min_threads: 
+                    None,
+                max_threads: 
+                    None,
             }
         )
     }
@@ -323,7 +332,7 @@ impl Server
     fn new(config: ServerConfig) -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
     {
         let (listener, la) = config.addr.bind()?;
-        Self::from_listener(listener, la, config.ssl)
+        Self::from_listener(listener, la, config)
     }
 
     
@@ -418,7 +427,7 @@ impl Server
                                 }
                             }
                         )
-                    );
+                    )?;
 
                 return Ok(());
             },
@@ -448,7 +457,7 @@ impl Server
     /// This is useful if you've constructed TcpListener using some less usual method
     /// such as from systemd. For other cases, you probably want the `new()` function.
     pub 
-    fn from_listener<L: Into<Listener>>(listener: L, local_addr: ListenAddr, ssl_config: Option<SslConfig>) 
+    fn from_listener<L: Into<Listener>>(listener: L, local_addr: ListenAddr, config: ServerConfig) 
         -> Result<Server, Box<dyn Error + Send + Sync + 'static>> 
     {
         let server = listener.into();
@@ -460,7 +469,7 @@ impl Server
         log::debug!("Server listening on {}", local_addr);
 
         // building the SSL capabilities
-        let ssl= SslContextWrap::build_ssl_capabilities(ssl_config)?;
+        let ssl= SslContextWrap::build_ssl_capabilities(config.ssl)?;
 
         // creating a task where server.accept() is continuously called
         // and ClientConnection objects are pushed in the messages queue
@@ -468,12 +477,13 @@ impl Server
 
         let inside_close_trigger = close_trigger.clone();
         let inside_messages = messages.clone();
+        
+        // a tasks pool is used to dispatch the connections into threads
+        let tasks_pool = util::TaskPool::new(config.min_threads, config.max_threads)?;
+
         thread::spawn(
             move || 
             {
-                // a tasks pool is used to dispatch the connections into threads
-                let tasks_pool = util::TaskPool::new();
-
                 log::debug!("Running accept thread");
 
                 while inside_close_trigger.load(Relaxed) == false
@@ -499,7 +509,7 @@ impl Server
                 close: 
                     close_trigger,
                 listening_addr: 
-                    local_addr,
+                    Some(local_addr),
             }
         );
     }
@@ -508,25 +518,34 @@ impl Server
     ///
     /// The iterator will return `None` if the server socket is shutdown.
     #[inline]
-    pub fn incoming_requests(&self) -> IncomingRequests<'_> {
+    pub 
+    fn incoming_requests(&self) -> IncomingRequests<'_> 
+    {
         IncomingRequests { server: self }
     }
 
     /// Returns the address the server is listening to.
     #[inline]
-    pub fn server_addr(&self) -> ListenAddr {
-        self.listening_addr.clone()
+    pub 
+    fn server_addr(&self) -> &ListenAddr 
+    {
+        self.listening_addr.as_ref().unwrap()
     }
 
     /// Returns the number of clients currently connected to the server.
-    pub fn num_connections(&self) -> usize {
+    pub 
+    fn num_connections(&self) -> usize 
+    {
         unimplemented!()
         //self.requests_receiver.lock().len()
     }
 
     /// Blocks until an HTTP request has been submitted and returns it.
-    pub fn recv(&self) -> IoResult<Request> {
-        match self.messages.pop() {
+    pub 
+    fn recv(&self) -> IoResult<Request> 
+    {
+        match self.messages.pop() 
+        {
             Some(Message::Error(err)) => Err(err),
             Some(Message::NewRequest(rq)) => Ok(rq),
             None => Err(IoError::new(IoErrorKind::Other, "thread unblocked")),
@@ -534,8 +553,11 @@ impl Server
     }
 
     /// Same as `recv()` but doesn't block longer than timeout
-    pub fn recv_timeout(&self, timeout: Duration) -> IoResult<Option<Request>> {
-        match self.messages.pop_timeout(timeout) {
+    pub 
+    fn recv_timeout(&self, timeout: Duration) -> IoResult<Option<Request>> 
+    {
+        match self.messages.pop_timeout(timeout) 
+        {
             Some(Message::Error(err)) => Err(err),
             Some(Message::NewRequest(rq)) => Ok(Some(rq)),
             None => Ok(None),
@@ -543,8 +565,11 @@ impl Server
     }
 
     /// Same as `recv()` but doesn't block.
-    pub fn try_recv(&self) -> IoResult<Option<Request>> {
-        match self.messages.try_pop() {
+    pub 
+    fn try_recv(&self) -> IoResult<Option<Request>> 
+    {
+        match self.messages.try_pop() 
+        {
             Some(Message::Error(err)) => Err(err),
             Some(Message::NewRequest(rq)) => Ok(Some(rq)),
             None => Ok(None),
@@ -554,40 +579,31 @@ impl Server
     /// Unblock thread stuck in recv() or incoming_requests().
     /// If there are several such threads, only one is unblocked.
     /// This method allows graceful shutdown of server.
-    pub fn unblock(&self) {
+    pub 
+    fn unblock(&self) 
+    {
         self.messages.unblock();
     }
 }
 
-impl Iterator for IncomingRequests<'_> {
+impl Iterator for IncomingRequests<'_> 
+{
     type Item = Request;
-    fn next(&mut self) -> Option<Request> {
+    
+    fn next(&mut self) -> Option<Request> 
+    {
         self.server.recv().ok()
     }
 }
 
-impl Drop for Server {
-    fn drop(&mut self) {
+impl Drop for Server 
+{
+    fn drop(&mut self) 
+    {
         self.close.store(true, Relaxed);
         // Connect briefly to ourselves to unblock the accept thread
-        let maybe_stream = match &self.listening_addr {
-            ListenAddr::IP(addr) => TcpStream::connect(addr).map(Connection::from),
-            #[cfg(unix)]
-            ListenAddr::Unix(addr) => {
-                // TODO: use connect_addr when its stabilized.
-                let path = addr.as_pathname().unwrap();
-                std::os::unix::net::UnixStream::connect(path).map(Connection::from)
-            }
-        };
-        if let Ok(stream) = maybe_stream {
-            let _ = stream.shutdown(Shutdown::Both);
-        }
+        
+        drop(self.listening_addr.take().unwrap());
 
-        #[cfg(unix)]
-        if let ListenAddr::Unix(addr) = &self.listening_addr {
-            if let Some(path) = addr.as_pathname() {
-                let _ = std::fs::remove_file(path);
-            }
-        }
     }
 }

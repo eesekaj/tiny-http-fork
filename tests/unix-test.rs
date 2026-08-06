@@ -14,20 +14,25 @@ use tempfile::TempDir;
 #[allow(dead_code)]
 mod support;
 
+
 #[test]
 fn unix_basic_handling() 
 {
     let tempdir = TempDir::new().unwrap();
     let p = tempdir.path().join("tiny-http-test.sock");
     let server = tiny_http_fork::Server::http_unix(&p).unwrap();
-    let path: PathBuf = server
-        .server_addr()
-        .to_unix()
-        .unwrap()
-        .as_pathname()
-        .unwrap()
-        .into();
-    let mut client = UnixStream::connect(path).unwrap();
+    let path: PathBuf = 
+        server
+            .server_addr()
+            .to_unix()
+            .unwrap()
+            .as_pathname()
+            .unwrap()
+            .into();
+    
+    println!("serv path: {}", path.display());
+
+    let mut client = UnixStream::connect(&path).unwrap();
 
     write!(
         client,

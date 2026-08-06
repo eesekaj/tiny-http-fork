@@ -11,17 +11,37 @@ edition = "2024"
 rust-version = "1.85"
 
 [features]
-default = ["log"]
+default = ["log_stdout", "task_pool_channel"]
+
+# legacy realization of a task pool
+# does not limit the maximum amount of threads
+# does not restart thread which paniced, it will be re-created
+# cleans unused threads
+task_pool_legacy = []
+
+# new realization based on multi-receiver MPSC crossbeam
+# based on crossbeam MPSC
+# limits the amount of spawned threads
+# restarts the thread if it crashes and reports error to log
+# starts new threads when task "pressure" increases
+# cleans unused threads
+task_pool_channel = ["dep:crossbeam", "dep:nix"]
 
 ssl = ["ssl-rustls"]
 ssl-openssl = ["dep:openssl", "dep:zeroize"]
 ssl-rustls = ["dep:rustls", "dep:rustls-pemfile", "dep:zeroize"]
 ssl-native-tls = ["dep:native-tls", "dep:zeroize"]
 
+log = ["dep:log"]
+log_stdout = []
+
 [dependencies]
 ascii = "1.1"
 chunked_transfer = "1"
 httpdate = "1.0"
+
+crossbeam = { version = "0.8", features = ["std"], optional = true }
+nix = { version = "0.31", features = ["signal"], optional = true }
 
 log = { version = "0.4", optional = true }
 openssl = { version = "0.10", optional = true }
@@ -35,10 +55,13 @@ rustc-serialize = "0.3"
 sha1 = "0.11.0"
 fdlimit = "0.3"
 tempfile = "~3.27"
+rand = "0.10"
+
+divan = "0.1.21"
 
 [package.metadata.docs.rs]
 # Enable just one SSL implementation
-features = ["ssl-rustls"]
+features = ["ssl-rustls", "task_pool_channel"]
 
 [[example]]
 name = "hello-world"
@@ -63,3 +86,7 @@ required-features = ["log", "ssl-rustls"]
 [[example]]
 name = "websockets"
 required-features = ["log"]
+
+[[bench]]
+name = "bench"
+harness = false

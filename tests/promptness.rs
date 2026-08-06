@@ -60,7 +60,7 @@ use super::*;
 
         let server = Server::http("0.0.0.0:0").unwrap();
 
-        let  mut server_ip = server.server_addr().to_ip().unwrap();
+        let  mut server_ip = server.server_addr().to_ip().unwrap().clone();
         server_ip = 
             if server_ip.ip().is_unspecified() == true
             {
@@ -162,7 +162,7 @@ use super::*;
 
         // BSD fix, it does not want to connect to 0.0.0.0:port
         let server = Server::http("127.0.0.1:0").unwrap();
-        let  mut server_ip = server.server_addr().to_ip().unwrap();
+        let  mut server_ip = server.server_addr().to_ip().unwrap().clone();
         server_ip = 
             if server_ip.ip().is_unspecified() == true
             {

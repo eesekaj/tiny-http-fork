@@ -232,8 +232,10 @@ pub enum ListenAddr
 
 impl ListenAddr 
 {
-    pub fn to_ip(self) -> Option<SocketAddr> {
-        match self {
+    pub fn to_ip(&self) -> Option<&SocketAddr> 
+    {
+        match self 
+        {
             Self::IP(s) => Some(s),
             #[cfg(unix)]
             Self::Unix(_) => None,
@@ -244,34 +246,61 @@ impl ListenAddr
     ///
     /// This is also available on non-Unix platforms, for ease of use, but always returns `None`.
     #[cfg(unix)]
-    pub fn to_unix(self) -> Option<unix_net::SocketAddr> {
-        match self {
+    pub fn to_unix(&self) -> Option<unix_net::SocketAddr> 
+    {
+        match self 
+        {
             Self::IP(_) => None,
-            Self::Unix(s) => Some(s),
+            Self::Unix(s) => Some(s.clone()),
         }
     }
     #[cfg(not(unix))]
-    pub fn to_unix(self) -> Option<SocketAddr> {
+    pub fn to_unix(self) -> Option<SocketAddr> 
+    {
         None
     }
 }
-impl From<SocketAddr> for ListenAddr {
-    fn from(s: SocketAddr) -> Self {
+
+impl From<SocketAddr> for ListenAddr 
+{
+    fn from(s: SocketAddr) -> Self 
+    {
         Self::IP(s)
     }
 }
+
 #[cfg(unix)]
-impl From<unix_net::SocketAddr> for ListenAddr {
-    fn from(s: unix_net::SocketAddr) -> Self {
+impl From<unix_net::SocketAddr> for ListenAddr 
+{
+    fn from(s: unix_net::SocketAddr) -> Self 
+    {
         Self::Unix(s)
     }
 }
-impl std::fmt::Display for ListenAddr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+impl std::fmt::Display for ListenAddr 
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result 
+    {
+        match self 
+        {
             Self::IP(s) => s.fmt(f),
             #[cfg(unix)]
             Self::Unix(s) => std::fmt::Debug::fmt(s, f),
+        }
+    }
+}
+
+impl Drop for ListenAddr
+{
+    fn drop(&mut self) 
+    {
+        #[cfg(unix)]
+        if let ListenAddr::Unix(addr) = self
+        {
+            if let Some(path) = addr.as_pathname() 
+            {
+                let _ = std::fs::remove_file(path);
+            }
         }
     }
 }

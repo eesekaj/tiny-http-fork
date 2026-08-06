@@ -1,5 +1,21 @@
 # Changes
 
+## 0.12.9
+- fix [CVE-2026-66753](https://github.com/tiny-http/tiny-http/issues/288)
+- fix [CVE-2026-66752](https://github.com/tiny-http/tiny-http/issues/287)
+- merged [ECONNABORTED triggers a server shutdown](https://github.com/tiny-http/tiny-http/issues/283)
+- merged [Handle ECONNABORTED errors from accept()](https://github.com/tiny-http/tiny-http/pull/284)
+- merged [fix: Make sure that the connection is indeed closed at the end of request](https://github.com/tiny-http/tiny-http/pull/282) but later rejected because it is breaking tests and this is a wrong way
+- updated crate versions
+- updated SSL/TLS subsystem
+- code cleanup (partly)
+- implemented `task_pool_channel` based on crossbeam and nix (temporary)
+- improved fix [CVE-2026-66753]
+- configs are moved to another file
+- bench was reimplemented using `divan`
+
+## ---- MISSING RECORDS
+
 ## 0.12.0
 * Bumped the minimum compiler version tested by CI to 1.56 - this is necessary due to an increasing number of dependencies
   introducing Cargo manifest features only supported on newer versions of Rust.

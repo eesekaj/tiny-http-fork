@@ -1,15 +1,19 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
+use std::{io, thread};
 use std::time::Duration;
 
 /// Manages a collection of threads.
 ///
 /// A new thread is created every time all the existing threads are full.
 /// Any idle thread will automatically die after a few seconds.
-pub struct TaskPool {
+pub struct TaskPool 
+{
     sharing: Arc<Sharing>,
+
+    // min number of threads
+    min_threads: usize,
 }
 
 struct Sharing {
@@ -26,8 +30,7 @@ struct Sharing {
     waiting_tasks: AtomicUsize,
 }
 
-/// Minimum number of active threads.
-static MIN_THREADS: usize = 4;
+
 
 struct Registration<'a> {
     nb: &'a AtomicUsize,
@@ -47,7 +50,14 @@ impl<'a> Drop for Registration<'a> {
 }
 
 impl TaskPool {
-    pub fn new() -> TaskPool {
+
+    /// Minimum number of active threads.
+    const MIN_THREADS: usize = 4;
+
+    pub fn new(min_threads_opt: Option<usize>, _max_threads_opt: Option<usize>) -> io::Result<TaskPool> {
+
+        let min_threads = min_threads_opt.unwrap_or(Self::MIN_THREADS);
+
         let pool = TaskPool {
             sharing: Arc::new(Sharing {
                 todo: Mutex::new(VecDeque::new()),
@@ -55,18 +65,21 @@ impl TaskPool {
                 active_tasks: AtomicUsize::new(0),
                 waiting_tasks: AtomicUsize::new(0),
             }),
+            min_threads
         };
 
-        for _ in 0..MIN_THREADS {
+        
+
+        for _ in 0..min_threads {
             pool.add_thread(None)
         }
 
-        pool
+        return Ok(pool);
     }
 
     /// Executes a function in a thread.
     /// If no thread is available, spawns a new one.
-    pub fn spawn(&self, code: Box<dyn FnMut() + Send>) {
+    pub fn spawn(&self, code: Box<dyn FnMut() + Send>) -> io::Result<()> {
         let mut queue = self.sharing.todo.lock().unwrap();
 
         if self.sharing.waiting_tasks.load(Ordering::Acquire) == 0 {
@@ -75,10 +88,13 @@ impl TaskPool {
             queue.push_back(code);
             self.sharing.condvar.notify_one();
         }
+
+        return Ok(());
     }
 
     fn add_thread(&self, initial_fn: Option<Box<dyn FnMut() + Send>>) {
         let sharing = self.sharing.clone();
+        let min_threads = self.min_threads;
 
         thread::spawn(move || {
             let sharing = sharing;
@@ -101,7 +117,7 @@ impl TaskPool {
                         let _waiting_guard = Registration::new(&sharing.waiting_tasks);
 
                         let received =
-                            if sharing.active_tasks.load(Ordering::Acquire) <= MIN_THREADS {
+                            if sharing.active_tasks.load(Ordering::Acquire) <= min_threads {
                                 todo = sharing.condvar.wait(todo).unwrap();
                                 true
                             } else {
