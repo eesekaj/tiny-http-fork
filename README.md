@@ -63,7 +63,14 @@ Running accept thread
 ### task_pool_channel
 
 ```text
-
+Timer precision: 10 ns
+bench                   fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ parallel_requests    Server listening on 127.0.0.1:41715
+Running accept thread
+39.39 ms      │ 88.19 ms      │ 41.63 ms      │ 42.74 ms      │ 100     │ 100
+╰─ sequential_requests  Server listening on 127.0.0.1:36157
+Running accept thread
+14.27 µs      │ 48.71 µs      │ 14.52 µs      │ 15.48 µs      │ 100     │ 100
 ```
 
 ## ---- original readme ----
