@@ -11,7 +11,7 @@ edition = "2024"
 rust-version = "1.85"
 
 [features]
-default = ["log_stdout", "task_pool_legacy"]
+default = ["log_stdout", "task_pool_channel"]
 
 # legacy realization of a task pool
 # does not limit the maximum amount of threads

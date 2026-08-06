@@ -320,9 +320,13 @@ impl TaskHandle
         match self.handler.join()
         {
             Ok(_) => 
-                log::debug!("thread '{}' exited", thread_name),
+            {
+                log::debug!("thread '{}' exited", thread_name);
+            },
             Err(e) => 
-                log::error!("thread '{}' exit with error: {:?}", thread_name, e)
+            {
+                log::error!("thread '{}' exit with error: {:?}", thread_name, e);
+            }
         }
         
     }
@@ -571,7 +575,7 @@ impl TaskPool
             }
             else
             {
-                log::error!("stalled thread: {}", task.handler.thread().name().unwrap_or("UNKNOWN"))
+                log::error!("stalled thread: {}", task.handler.thread().name().unwrap_or("UNKNOWN"));
             }
         }
 
