@@ -33,65 +33,80 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run build debug (features std)
+      - name: Run build debug (features task_pool_legacy)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo build --all-targets --no-default-features 
+          cargo build --all-targets --no-default-features --features task_pool_legacy
 
-      - name: Run checks (features std)
+      - name: Run checks (features task_pool_legacy)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo check --all-targets --no-default-features 
+          cargo check --all-targets --no-default-features --features task_pool_legacy
 
-      - name: Run tests (features std)
+      - name: Run tests (features task_pool_legacy)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo test --no-default-features 
+          cargo test --no-default-features --features task_pool_legacy
+#-- 
+      - name: Run build debug (features task_pool_channel)
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          cargo build --all-targets --no-default-features --features task_pool_channel
+
+      - name: Run checks (features task_pool_channel)
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          cargo check --all-targets --no-default-features --features task_pool_channel
+
+      - name: Run tests (features task_pool_channel)
+        run: |
+          export PATH=$HOME/.cargo/bin:$PATH
+          cargo test --no-default-features --features task_pool_channel
 #-- 
       - name: Run build debug (features std,use_ring)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo build --all-targets --no-default-features --features ssl-rustls
+          cargo build --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
       - name: Run checks (features std,use_ring)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo check --all-targets --no-default-features --features ssl-rustls
+          cargo check --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
       - name: Run tests (features std,use_ring)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo test --no-default-features --features ssl-rustls
+          cargo test --no-default-features --features ssl-rustls,task_pool_legacy
 # -- 
       - name: Run build debug (features std,use_aws_lc)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo build --all-targets --no-default-features --features ssl-native-tls
+          cargo build --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
       - name: Run checks (features use_aws_lc)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo check --all-targets --no-default-features --features ssl-native-tls
+          cargo check --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
       - name: Run tests (features std,use_aws_lc)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo test --no-default-features --features ssl-native-tls
+          cargo test --no-default-features --features ssl-native-tls,task_pool_legacy
 # -- use_openssl
       - name: Run build debug (features std,use_openssl)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo build --all-targets --no-default-features --features ssl-openssl
+          cargo build --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
       - name: Run checks (features std,use_openssl)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo check --all-targets --no-default-features --features ssl-openssl
+          cargo check --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
       - name: Run tests (features std,use_openssl)
         run: |
           export PATH=$HOME/.cargo/bin:$PATH
-          cargo test --no-default-features --features ssl-openssl
+          cargo test --no-default-features --features ssl-openssl,task_pool_legacy
 
 
 

@@ -31,38 +31,47 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run build debug (features )
-        run: cargo build --all-targets --no-default-features 
+      - name: Run build debug (features task_pool_legacy)
+        run: cargo build --all-targets --no-default-features --features task_pool_legacy
 
       - name: Run checks (features )
-        run: cargo check --all-targets --no-default-features 
+        run: cargo check --all-targets --no-default-features --features task_pool_legacy
 
       - name: Run tests (features )
-        run: cargo test --no-default-features 
+        run: cargo test --no-default-features --features task_pool_legacy
+# --  
+      - name: Run build debug (features task_pool_channel)
+        run: cargo build --all-targets --no-default-features --features task_pool_channel
+
+      - name: Run checks (features )
+        run: cargo check --all-targets --no-default-features --features task_pool_channel
+
+      - name: Run tests (features )
+        run: cargo test --no-default-features --features task_pool_channel
 # -- ssl-rustls
       - name: Run build debug (features ssl-rustls)
-        run: cargo build --all-targets --no-default-features --features ssl-rustls
+        run: cargo build --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
       - name: Run checks (features )
-        run: cargo check --all-targets --no-default-features --features ssl-rustls
+        run: cargo check --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
       - name: Run tests (features )
-        run: cargo test --no-default-features --features ssl-rustls
+        run: cargo test --no-default-features --features ssl-rustls,task_pool_legacy
 # -- ssl-native-tls
       - name: Run build debug (features ssl-native-tls)
-        run: cargo build --all-targets --no-default-features --features ssl-native-tls
+        run: cargo build --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
       - name: Run checks (features )
-        run: cargo check --all-targets --no-default-features --features ssl-native-tls
+        run: cargo check --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
       - name: Run tests (features )
-        run: cargo test --no-default-features --features ssl-native-tls
+        run: cargo test --no-default-features --features ssl-native-tls,task_pool_legacy
 # -- ssl-openssl
       - name: Run build debug (features ssl-openssl)
-        run: cargo build --all-targets --no-default-features --features ssl-openssl
+        run: cargo build --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
       - name: Run checks (features )
-        run: cargo check --all-targets --no-default-features --features ssl-openssl
+        run: cargo check --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
       - name: Run tests (features )
-        run: cargo test --no-default-features --features ssl-openssl
+        run: cargo test --no-default-features --features ssl-openssl,task_pool_legacy

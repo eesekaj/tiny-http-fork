@@ -69,15 +69,18 @@ jobs:
             uname -a
             export PATH=$HOME/.cargo/bin:$PATH
             rustc --version
-            cargo build --all-targets --no-default-features 
-            cargo check --all-targets --no-default-features 
-            cargo test --no-default-features 
-            cargo build --all-targets --no-default-features --features ssl-rustls
-            cargo check --all-targets --no-default-features --features ssl-rustls
-            cargo test --no-default-features --features ssl-rustls
-            cargo build --all-targets --no-default-features --features ssl-native-tls
-            cargo check --all-targets --no-default-features --features ssl-native-tls
-            cargo test --no-default-features --features ssl-native-tls
-            cargo build --all-targets --no-default-features --features ssl-openssl
-            cargo check --all-targets --no-default-features --features ssl-openssl
-            cargo test --no-default-features --features ssl-openssl
+            cargo build --all-targets --no-default-features --features task_pool_legacy
+            cargo check --all-targets --no-default-features --features task_pool_legacy
+            cargo test --no-default-features --features task_pool_legacy
+            cargo build --all-targets --no-default-features --features task_pool_channel
+            cargo check --all-targets --no-default-features --features task_pool_channel
+            cargo test --no-default-features --features task_pool_channel
+            cargo build --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
+            cargo check --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
+            cargo test --no-default-features --features ssl-rustls,task_pool_legacy
+            cargo build --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
+            cargo check --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
+            cargo test --no-default-features --features ssl-native-tls,task_pool_legacy
+            cargo build --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
+            cargo check --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
+            cargo test --no-default-features --features ssl-openssl,task_pool_legacy
