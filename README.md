@@ -20,19 +20,13 @@ Because original authors does not respond on CVE and this crate is the only whic
 The LICENSES which were initially were preserved and published under the same licenses.
 
 ## Version
-V 0.12.9-crate
+V 0.12.10-crate
 
-## Changelog
+## Features
 
-Since the crate was forked the following was implemented:
-- fix [CVE-2026-66753](https://github.com/tiny-http/tiny-http/issues/288)
-- fix [CVE-2026-66752](https://github.com/tiny-http/tiny-http/issues/287)
-- merged [ECONNABORTED triggers a server shutdown](https://github.com/tiny-http/tiny-http/issues/283)
-- merged [Handle ECONNABORTED errors from accept()](https://github.com/tiny-http/tiny-http/pull/284)
-- merged [fix: Make sure that the connection is indeed closed at the end of request](https://github.com/tiny-http/tiny-http/pull/282) but later rejected because it is breaking tests and this is a wrong way
-- updated crate versions
-- updated SSL/TLS subsystem
-- code cleanup (partly)
+- `allow_utf8_headers` - enables the UTF-8 support in non-standart headers.
+- `task_pool_legacy` - a legacy task pool (DEFAULT)
+- `task_pool_channel` - a new task pool based on `crossbeam` and `nix`.
 
 ## -- INFO/POLICY --
 
@@ -51,26 +45,57 @@ Since the crate was forked the following was implemented:
 
 ```text
 Timer precision: 10 ns
-bench                   fastest       │ slowest       │ median        │ mean          │ samples │ iters
-├─ parallel_requests    Server listening on 127.0.0.1:36525
+bench                         fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ header_parsing_with_ascii  89.81 ns      │ 7.329 µs      │ 89.81 ns      │ 171.1 ns      │ 100     │ 100
+├─ parallel_requests          Server listening on 127.0.0.1:45767
 Running accept thread
-38.78 ms      │ 64.13 ms      │ 40.18 ms      │ 40.8 ms       │ 100     │ 100
-╰─ sequential_requests  Server listening on 127.0.0.1:33833
+40.1 ms       │ 79.89 ms      │ 43.36 ms      │ 43.83 ms      │ 100     │ 100
+╰─ sequential_requests        Server listening on 127.0.0.1:46425
 Running accept thread
-15.4 µs       │ 83.4 µs       │ 15.89 µs      │ 17.24 µs      │ 100     │ 100
+14.07 µs      │ 41.47 µs      │ 15.88 µs      │ 16.11 µs      │ 100     │ 100
 ```
+
+### task_pool_legacy, allow_utf8_headers
+
+```text
+Timer precision: 10 ns
+bench                        fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ header_parsing_with_utf8  669.7 ns      │ 12.68 µs      │ 679.7 ns      │ 991.3 ns      │ 100     │ 100
+├─ parallel_requests         Server listening on 127.0.0.1:44127
+Running accept thread
+39.2 ms       │ 62.3 ms       │ 40.26 ms      │ 40.74 ms      │ 100     │ 100
+╰─ sequential_requests       Server listening on 127.0.0.1:45367
+Running accept thread
+14.38 µs      │ 61.19 µs      │ 14.67 µs      │ 15.98 µs      │ 100     │ 100
+```
+
 
 ### task_pool_channel
 
 ```text
 Timer precision: 10 ns
-bench                   fastest       │ slowest       │ median        │ mean          │ samples │ iters
-├─ parallel_requests    Server listening on 127.0.0.1:41715
+bench                         fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ header_parsing_with_ascii  88.77 ns      │ 5.109 µs      │ 99.77 ns      │ 149 ns        │ 100     │ 100
+├─ parallel_requests          Server listening on 127.0.0.1:39775
 Running accept thread
-39.39 ms      │ 88.19 ms      │ 41.63 ms      │ 42.74 ms      │ 100     │ 100
-╰─ sequential_requests  Server listening on 127.0.0.1:36157
+39.19 ms      │ 76.45 ms      │ 41.45 ms      │ 42.41 ms      │ 100     │ 100
+╰─ sequential_requests        Server listening on 127.0.0.1:39593
 Running accept thread
-14.27 µs      │ 48.71 µs      │ 14.52 µs      │ 15.48 µs      │ 100     │ 100
+14.38 µs      │ 393.5 µs      │ 14.67 µs      │ 19.78 µs      │ 100     │ 100
+```
+
+### task_pool_channel, allow_utf8_headers
+
+```text
+Timer precision: 10 ns
+bench                        fastest       │ slowest       │ median        │ mean          │ samples │ iters
+├─ header_parsing_with_utf8  539.7 ns      │ 9.858 µs      │ 549.7 ns      │ 650.9 ns      │ 100     │ 100
+├─ parallel_requests         Server listening on 127.0.0.1:45301
+Running accept thread
+38.54 ms      │ 69.38 ms      │ 40.19 ms      │ 40.63 ms      │ 100     │ 100
+╰─ sequential_requests       Server listening on 127.0.0.1:43039
+Running accept thread
+16.39 µs      │ 61.89 µs      │ 16.95 µs      │ 17.92 µs      │ 100     │ 100
 ```
 
 ## ---- original readme ----

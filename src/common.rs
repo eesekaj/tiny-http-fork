@@ -1,4 +1,4 @@
-use ascii::{AsciiStr, AsciiString, FromAsciiError};
+use ascii::{AsciiStr, AsciiString};
 use std::cmp::Ordering;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
@@ -147,24 +147,38 @@ impl PartialOrd<StatusCode> for u16 {
     }
 }
 
+/// Header parsing error.
 #[derive(Debug)]
-pub enum HeaderError<B>
+pub enum HeaderError
 {
-    AsciiError(FromAsciiError<B>),
-    ProtocolViolation,
+    /// Protocol violation reason.
+    ProtocolViolation(String),
 }
+
+impl fmt::Display for HeaderError
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result 
+    {
+        match self
+        {
+            Self::ProtocolViolation(errmsg) => 
+                write!(f, "protocol violation: {}", errmsg)
+        }
+    }
+}
+
 
 /// Represents a HTTP header.
 #[derive(Debug, Clone)]
-pub struct Header 
+pub struct Header
 {
     pub field: HeaderField,
-    pub value: AsciiString,
+    pub value: HeaderFieldValue,
 }
 
 impl Header 
 {
-    /// Builds a `Header` from two `Vec<u8>`s or two `&[u8]`s.
+    /// Builds a `Header` from two two `&[u8]`s.
     ///
     /// Example:
     ///
@@ -172,65 +186,310 @@ impl Header
     /// let header = tiny_http_fork::Header::from_bytes(&b"Content-Type"[..], &b"text/plain"[..]).unwrap();
     /// ```
     #[allow(clippy::result_unit_err)]
-    pub fn from_bytes<B1, B2>(header: B1, value: B2) -> Result<Header, ()>
+    pub 
+    fn from_bytes<B1, B2>(header: B1, value: B2) -> Result<Self, HeaderError>
     where
-        B1: Into<Vec<u8>> + AsRef<[u8]>,
-        B2: Into<Vec<u8>> + AsRef<[u8]>,
+        B1: AsRef<[u8]>,
+        B2: AsRef<[u8]>,
     {
-        let header = HeaderField::from_bytes(header).or(Err(()))?;
-        let value = AsciiString::from_ascii(value).or(Err(()))?;
+        let header = HeaderField::try_from(header.as_ref())?;
 
-        let value_trimmed = value.trim();
+        let value = HeaderFieldValue::from_slice(&header, value)?;
 
+        return Ok( 
+            Header{ field: header, value: value } 
+        );
+    }
+
+    /// Builds a `Header` from two two `&str`s.
+    ///
+    /// Example:
+    ///
+    /// ```ignore
+    /// let header = tiny_http_fork::Header::from_str("Content-Type", "text/plain").unwrap();
+    /// ```
+    pub 
+    fn from_str<S1, S2>(header: S1, value: S2) -> Result<Self, HeaderError>
+    where
+        S1: AsRef<str>,
+        S2: AsRef<str>
+    {
+        Self::from_bytes(header.as_ref(), value.as_ref())
+    }
+}
+
+impl TryFrom<String> for Header
+{
+    type Error = HeaderError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> 
+    {
+        return Self::try_from(value.as_str());
+    }
+}
+
+impl TryFrom<&str> for Header
+{
+    type Error = HeaderError;
+
+    fn try_from(input: &str) -> Result<Self, Self::Error> 
+    {
+        let mut elems = input.splitn(2, ':');
+        let field = elems.next().ok_or(HeaderError::ProtocolViolation("no key val present".into()))?;
+        let value = elems.next().ok_or(HeaderError::ProtocolViolation("no val val present".into()))?;
         
-        
-        // reject values containing 0x0D, 0x0A or 0x00,
-        // reject field names containing anything outside the RFC 9110 token set:
-        //   Tokens are short textual identifiers that do not include whitespace or delimiters
-        // Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
-        //    U+0030 '0' ..= U+0039 '9'.
-        // OR
-        // The following special characters: U+0021 ..= U+002F ! " # $ % & ' ( ) * + , - . /, or
-        //    U+003A ..= U+0040 : ; < = > ? @, or U+005B ..= U+0060 [ \ ] ^ _ `, or
-        //    U+007B ..= U+007E { | } ~
-        if false == 
-            value_trimmed.as_bytes()
-                .iter()
-                .all(|ch| ch.is_ascii_alphanumeric() == true || ch.is_ascii_punctuation() == true ||
-                    *ch == b' ')
-        {
-            return Err(());
-        }
-
-        return Ok( Header{ field: header, value: value_trimmed.to_ascii_string() } );
+        return Self::from_bytes(field, value);
     }
 }
 
 impl FromStr for Header 
 {
-    type Err = ();
+    type Err = HeaderError;
 
-    fn from_str(input: &str) -> Result<Header, ()> {
-        let mut elems = input.splitn(2, ':');
-        let field = elems.next().ok_or(())?;
-        let value = elems.next().ok_or(())?;
-        
-        return Self::from_bytes(field, value);
-        /*let field = elems.next().and_then(|f| f.parse().ok()).ok_or(())?;
-        let value = elems
-            .next()
-            .and_then(|v| AsciiString::from_ascii(v.trim()).ok())
-            .ok_or(())?;*/
-
-       // Ok(Header { field, value })
+    fn from_str(s: &str) -> Result<Self, Self::Err> 
+    {
+        Self::try_from(s)
     }
 }
 
-impl Display for Header {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+impl Display for Header 
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> 
+    {
         write!(formatter, "{}: {}", self.field, self.value.as_str())
     }
 }
+
+/// A [HeaderFieldValueAscii] which does not support UTF-8 in headers.
+#[cfg(not(feature = "allow_utf8_headers"))]
+pub type HeaderFieldValue = HeaderFieldValueAscii;
+
+/// A [HeaderFieldValueUtf] which does not support UTF-8 in headers.
+#[cfg(feature = "allow_utf8_headers")]
+pub type HeaderFieldValue = HeaderFieldValueUtf;
+
+#[cfg(feature = "allow_utf8_headers")]
+pub mod mod_header_value_utf
+{
+    use std::{collections::HashSet, sync::{LazyLock, OnceLock}};
+
+    use super::*;
+
+    const NON_UTF8_HEADERS: &'static [&'static str] = 
+    &[
+        "A-IM",
+        "Age",
+        "Accept",
+        "Accept-Charset",
+        "Accept-Datetime",
+        "Accept-Encoding",
+        "Accept-Language",
+        "Access-Control-Request-Method",
+        "Access-Control-Allow-Origin",
+        "Authorization",
+        "Cache-Control",
+        "Connection",
+        "Content-Encoding",
+        "Content-Length",
+        "Content-MD5",
+        "Content-Type",
+        "Cookie",
+        "Date",
+        "ETag",
+        "Expect",
+        "Forwarded",
+        "Host",
+        "From",
+        "HTTP2-Settings",
+        "If-Match",
+        "If-None-Match",
+        "If-Range",
+        "If-Unmodified-Since",
+        "Max-Forwards",
+        "Pragma",
+        "Proxy-Authorization",
+        "Referer",
+        "Server",
+        "Set-Cookie",
+        "Transfer-Encoding",
+        "User-Agent",
+        "Upgrade",
+        "X-Forwarded-Host",
+        "X-Backend-Server",
+        "X-Requested-With",
+        "X-Forwarded-Proto",
+        "X-HTTP-Method-Override",
+        "X-Att-Deviceid",
+        "X-Cache-Info",
+        "Vary"
+    ];
+
+    static NON_UTF8_HEADERS_SET: LazyLock<HashSet<&'static str>> = 
+        LazyLock::new(|| NON_UTF8_HEADERS.iter().map(|s| *s).collect());
+
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    pub struct HeaderFieldValueUtf(String);
+
+    impl AsRef<str> for HeaderFieldValueUtf
+    {
+        fn as_ref(&self) -> &str 
+        {
+            &self.0
+        }
+    }
+
+    impl HeaderFieldValueUtf
+    {
+        pub(crate)
+        fn from_slice<V>(field: &HeaderField, value: V) -> Result<Self, HeaderError>
+        where V: AsRef<[u8]>
+        {
+            let val_str = 
+                str::from_utf8(value.as_ref()).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+            Self::from_str(field, val_str)
+        }
+
+        pub(crate) 
+        fn from_str(field: &HeaderField, value: &str) -> Result<Self, HeaderError>
+        {
+            let value_trimmed = value.trim();
+
+            // reject values containing 0x0D, 0x0A or 0x00,
+            // reject field names containing anything outside the RFC 9110 token set:
+            //   Tokens are short textual identifiers that do not include whitespace or delimiters
+            // Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
+            //    U+0030 '0' ..= U+0039 '9'.
+            // OR
+            // The following special characters: U+0021 ..= U+002F ! " # $ % & ' ( ) * + , - . /, or
+            //    U+003A ..= U+0040 : ; < = > ? @, or U+005B ..= U+0060 [ \ ] ^ _ `, or
+            //    U+007B ..= U+007E { | } ~
+
+            // don't allow uncode in the base headers
+            let res = 
+                if NON_UTF8_HEADERS_SET.contains(field.as_str().as_str()) == true
+                {
+                    value_trimmed
+                        .chars()
+                        .all(
+                            |ch| 
+                            ch.is_ascii_alphanumeric() == true || ch.is_ascii_punctuation() == true ||
+                            ch == ' ' 
+                        )
+                }
+                else
+                {
+                    value_trimmed
+                        .chars()
+                        .all(
+                            |ch| 
+                            ch.is_alphanumeric() == true || ch.is_ascii_punctuation() == true ||
+                            ch == ' '
+                        )
+                };
+
+            
+            if res == false
+            {
+                return Err(
+                    HeaderError::ProtocolViolation(format!("header value contains invalid chars"))
+                );
+            }
+
+            return Ok(Self(value_trimmed.to_string()));
+        }
+
+        pub 
+        fn as_str(&self) -> &str
+        {
+            &self.0
+        }
+    }
+
+    impl Display for HeaderFieldValueUtf 
+    {
+        fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> 
+        {
+            write!(formatter, "{}", self.0.as_str())
+        }
+    }
+}
+
+#[cfg(feature = "allow_utf8_headers")]
+pub use self::mod_header_value_utf::HeaderFieldValueUtf;
+
+#[cfg(not(feature = "allow_utf8_headers"))]
+pub mod mod_header_value_ascii
+{
+    use super::*;
+
+    #[derive(Debug, Clone, Eq, PartialEq)]
+    pub struct HeaderFieldValueAscii(AsciiString);
+
+    impl AsRef<AsciiStr> for HeaderFieldValueAscii
+    {
+        fn as_ref(&self) -> &AsciiStr 
+        {
+            &self.0
+        }
+    }
+
+    impl HeaderFieldValueAscii
+    { 
+        pub(crate)
+        fn from_slice<V>(field: &HeaderField, value: V) -> Result<Self, HeaderError>
+        where V: AsRef<[u8]>
+        {
+            let val_str = 
+                AsciiStr::from_ascii(&value).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+            Self::from_str(field, val_str)
+        }
+
+        pub(crate)
+        fn from_str(_field: &HeaderField, value: &AsciiStr) -> Result<Self, HeaderError>
+        {
+            let value_trimmed = value.trim();
+
+            // reject values containing 0x0D, 0x0A or 0x00,
+            // reject field names containing anything outside the RFC 9110 token set:
+            //   Tokens are short textual identifiers that do not include whitespace or delimiters
+            // Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
+            //    U+0030 '0' ..= U+0039 '9'.
+            // OR
+            // The following special characters: U+0021 ..= U+002F ! " # $ % & ' ( ) * + , - . /, or
+            //    U+003A ..= U+0040 : ; < = > ? @, or U+005B ..= U+0060 [ \ ] ^ _ `, or
+            //    U+007B ..= U+007E { | } ~
+            if false == 
+                value_trimmed.as_bytes()
+                    .iter()
+                    .all(|ch| ch.is_ascii_alphanumeric() == true || ch.is_ascii_punctuation() == true ||
+                        *ch == b' ')
+            {
+                return Err(HeaderError::ProtocolViolation(format!("header value contains invalid chars")));
+            }
+
+            return Ok(Self(value_trimmed.to_ascii_string()));
+        }
+
+        pub 
+        fn as_str(&self) -> &str
+        {
+            self.0.as_str()
+        }
+    }
+
+    impl Display for HeaderFieldValueAscii 
+    {
+        fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> 
+        {
+            write!(formatter, "{}", self.0.as_str())
+        }
+    }
+}
+
+#[cfg(not(feature = "allow_utf8_headers"))]
+pub use self::mod_header_value_ascii::HeaderFieldValueAscii;
 
 /// Field of a header (eg. `Content-Type`, `Content-Length`, etc.)
 ///
@@ -239,12 +498,10 @@ impl Display for Header {
 pub struct HeaderField(AsciiString);
 
 impl HeaderField 
-{
-    pub 
-    fn from_bytes<B>(bytes: B) -> Result<HeaderField, HeaderError<B>>
-    where
-        B: Into<Vec<u8>> + AsRef<[u8]>,
+{ 
+    fn from_str(key: &AsciiStr) -> Result<Self, HeaderError>
     {
+            
         // reject values containing 0x0D, 0x0A or 0x00,
         // reject field names containing anything outside the RFC 9110 token set:
         //   Tokens are short textual identifiers that do not include whitespace or delimiters
@@ -252,19 +509,16 @@ impl HeaderField
         // - Alphanumeric characters: U+0041 'A' ..= U+005A 'Z', or U+0061 'a' ..= U+007A 'z', or
         //    U+0030 '0' ..= U+0039 '9'. or - or _
 
-        let ascii_str = 
-            AsciiString::from_ascii(bytes).map_err(|e| HeaderError::AsciiError(e))?;
-
         if false ==
-            ascii_str.as_str().chars()
+            key.as_str().chars()
                 .all(|ch| 
                     ch.is_ascii_alphanumeric() == true || ch == '-' || ch == '_'
                 ) 
         {
-            return Err(HeaderError::ProtocolViolation);
+            return Err(HeaderError::ProtocolViolation("header key value contains invalid chars".into()));
         }
 
-        return Ok(HeaderField(ascii_str));
+        return Ok(HeaderField(key.to_ascii_string()));
     }
 
     pub 
@@ -280,24 +534,82 @@ impl HeaderField
     }
 }
 
-impl FromStr for HeaderField 
+impl TryFrom<Vec<u8>> for HeaderField
 {
-    type Err = ();
+    type Error = HeaderError;
 
-    fn from_str(s: &str) -> Result<HeaderField, Self::Err> 
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> 
     {
-        HeaderField::from_bytes(s).map_err(|_e| ())
+        let val_str = 
+            AsciiStr::from_ascii(&value).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+        return Self::from_str(val_str);
     }
 }
 
-impl Display for HeaderField {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+impl TryFrom<&[u8]> for HeaderField
+{
+    type Error = HeaderError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> 
+    {
+        let val_str = 
+            AsciiStr::from_ascii(value).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+        return Self::from_str(val_str);
+    }
+}
+
+impl TryFrom<&str> for HeaderField
+{
+    type Error = HeaderError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> 
+    {
+        let val_str = 
+            AsciiStr::from_ascii(value).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+        Self::from_str(val_str)
+    }
+}
+
+impl TryFrom<String> for HeaderField
+{
+    type Error = HeaderError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> 
+    {
+        let val_str = 
+            AsciiStr::from_ascii(&value).map_err(|e| HeaderError::ProtocolViolation(e.to_string()))?;
+
+        Self::from_str(val_str)
+    }
+}
+
+
+impl FromStr for HeaderField 
+{
+    type Err = HeaderError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> 
+    {
+        HeaderField::try_from(s)
+    }
+}
+    
+
+impl Display for HeaderField 
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error> 
+    {
         write!(formatter, "{}", self.0.as_str())
     }
 }
 
-impl PartialEq for HeaderField {
-    fn eq(&self, other: &HeaderField) -> bool {
+impl PartialEq for HeaderField 
+{
+    fn eq(&self, other: &HeaderField) -> bool 
+    {
         let self_str: &str = self.as_str().as_ref();
         let other_str = other.as_str().as_ref();
         self_str.eq_ignore_ascii_case(other_str)
@@ -504,5 +816,23 @@ mod test {
         assert_eq!(Header::from_bytes("Content-Type", "text/plain; \x00charset=UTF-8").is_err(), true);
         assert_eq!(Header::from_bytes("Cont'ent-Type", "text/plain; charset=UTF-8").is_err(), true);
         assert_eq!(Header::from_bytes("Content@Type", "text/plain; charset=UTF-8").is_err(), true);
+    }
+
+    #[cfg(not(feature = "allow_utf8_headers"))]
+    #[test]
+    fn test_header_str_utf()
+    {
+        assert_eq!(Header::from_bytes("Auth-Custom-Type", "佳波").is_err(), true);
+        assert_eq!(Header::from_bytes("Auth-Custom-Type", "Kanami").is_err(), false);
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; charset=UTF-8; 由佳").is_err(), true);
+    }
+
+    #[cfg(feature = "allow_utf8_headers")]
+    #[test]
+    fn test_header_str_utf()
+    {
+        assert_eq!(Header::from_bytes("Auth-Custom-Type", "佳波").is_err(), false);
+        assert_eq!(Header::from_bytes("Auth-Custom-Type", "Kanami").is_err(), false);
+        assert_eq!(Header::from_bytes("Content-Type", "text/plain; charset=UTF-8; 由佳").is_err(), true);
     }
 }

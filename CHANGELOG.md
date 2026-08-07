@@ -1,5 +1,9 @@
 # Changes
 
+## 0.12.10
+- added support for UTF-8 header which can be enabled with feature `allow_utf8_headers`. It cannot be used
+with headers which are mostly standart. [Allow unicode headers #267](https://github.com/tiny-http/tiny-http/issues/267).
+
 ## 0.12.9
 - fix [CVE-2026-66753](https://github.com/tiny-http/tiny-http/issues/288)
 - fix [CVE-2026-66752](https://github.com/tiny-http/tiny-http/issues/287)

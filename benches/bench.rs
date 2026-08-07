@@ -2,7 +2,7 @@ extern crate tiny_http_fork;
 
 use std::io::Write;
 use divan::Bencher;
-use tiny_http_fork::{Method, config::ServerConfig};
+use tiny_http_fork::{Header, Method, config::ServerConfig};
 
 
 
@@ -10,6 +10,35 @@ fn main()
 {
     // Run registered benchmarks.
     divan::main();
+}
+
+#[cfg(feature = "allow_utf8_headers")]
+#[divan::bench]
+fn header_parsing_with_utf8(bencher: Bencher) 
+{
+    bencher
+        .bench_local(
+            move || 
+            {
+                Header::from_bytes("Auth-Custom-Type", "佳波").unwrap();
+                Header::from_bytes("Auth-Custom-Type", "Kanami").unwrap();
+                Header::from_bytes("Other-Header", "指ずク熱体ばぴつこ真下せ長芸ゆぐも称断イへ超市へん覧追テ境査ぶる出研シヘメ野朝").unwrap();
+            }
+        );
+}
+
+#[cfg(not(feature = "allow_utf8_headers"))]
+#[divan::bench]
+fn header_parsing_with_ascii(bencher: Bencher) 
+{
+    bencher
+        .bench_local(
+            move || 
+            {
+                Header::from_bytes("Auth-Custom-Type", "Kanami").unwrap();
+                Header::from_bytes("Other-Header", "very long text for the header data").unwrap();
+            }
+        );
 }
 
 #[divan::bench]

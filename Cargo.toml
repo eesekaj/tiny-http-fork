@@ -11,7 +11,10 @@ edition = "2024"
 rust-version = "1.85"
 
 [features]
-default = ["log_stdout", "task_pool_channel"]
+default = ["task_pool_legacy"]
+
+# allows the UTF-8 in headers except some headers
+allow_utf8_headers = []
 
 # legacy realization of a task pool
 # does not limit the maximum amount of threads

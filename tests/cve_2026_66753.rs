@@ -24,7 +24,7 @@ fn test_cve2026_66753()
                     
                     let evil = "a\r\nX-Injected: yes";
                     let mut resp = Response::from_string("body");
-                    resp.add_header(Header::from_bytes(&b"X-Echo"[..], evil.as_bytes()).unwrap());
+                    resp.add_header(Header::from_str("X-Echo", evil).unwrap());
                     let _ = request.respond(resp);
                 }
             }

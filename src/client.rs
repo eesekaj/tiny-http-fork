@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 
 use crate::common::{HTTPVersion, Method};
+use crate::log;
 use crate::util::RefinedTcpStream;
 use crate::util::{SequentialReader, SequentialReaderBuilder, SequentialWriterBuilder};
 use crate::Request;
@@ -38,7 +39,10 @@ pub struct ClientConnection {
 
 /// Error that can happen when reading a request.
 #[derive(Debug)]
-enum ReadError {
+enum ReadError 
+{
+    /// Issued when parsing headers or any other things fails
+    ProtocolViolation,
     WrongRequestLine,
     WrongHeader(HTTPVersion),
     /// the client sent an unrecognized `Expect` header
@@ -151,14 +155,23 @@ impl ClientConnection {
                     {
                         let line = self.read_next_line()?;
 
-                        if line.is_empty() {
+                        if line.is_empty() == true
+                        {
                             break;
-                        };
-                        headers.push(match FromStr::from_str(line.as_str().trim()) {
-                            // TODO: remove this conversion
-                            Ok(h) => h,
-                            _ => return Err(ReadError::WrongHeader(version)),
-                        });
+                        }
+
+                        match FromStr::from_str(line.as_str().trim())
+                        {
+                            Ok(hd) => 
+                            {
+                                headers.push(hd);
+                            },
+                            Err(e) => 
+                            {
+                                log::error!("{}", e);
+                                return Err(ReadError::ProtocolViolation);
+                            }
+                        }
                     }
 
                     headers
@@ -219,56 +232,72 @@ impl Iterator for ClientConnection {
 
     /// Blocks until the next Request is available.
     /// Returns None when no new Requests will come from the client.
-    fn next(&mut self) -> Option<Request> {
+    fn next(&mut self) -> Option<Request> 
+    {
         use crate::{Response, StatusCode};
 
         // the client sent a "connection: close" header in this previous request
         //  or is using HTTP 1.0, meaning that no new request will come
-        if self.no_more_requests {
+        if self.no_more_requests 
+        {
             return None;
         }
 
-        loop {
-            let rq = match self.read() {
-                Err(ReadError::WrongRequestLine) => {
-                    let writer = self.sink.next().unwrap();
-                    let response = Response::new_empty(StatusCode(400));
-                    response
-                        .raw_print(writer, HTTPVersion(1, 1), &[], false, None)
-                        .ok();
-                    return None; // we don't know where the next request would start,
-                                 // se we have to close
-                }
+        loop 
+        {
+            let rq = 
+                match self.read() 
+                {
+                    Err(ReadError::ProtocolViolation) =>
+                    {
+                        let writer = self.sink.next().unwrap();
+                        let response = Response::new_empty(StatusCode(400));
+                        response.raw_print(writer, HTTPVersion(1, 1), &[], false, None).ok();
 
-                Err(ReadError::WrongHeader(ver)) => {
-                    let writer = self.sink.next().unwrap();
-                    let response = Response::new_empty(StatusCode(400));
-                    response.raw_print(writer, ver, &[], false, None).ok();
-                    return None; // we don't know where the next request would start,
-                                 // se we have to close
-                }
+                        return None; 
+                    },
 
-                Err(ReadError::ReadIoError(ref err)) if err.kind() == ErrorKind::TimedOut => {
-                    // request timeout
-                    let writer = self.sink.next().unwrap();
-                    let response = Response::new_empty(StatusCode(408));
-                    response
-                        .raw_print(writer, HTTPVersion(1, 1), &[], false, None)
-                        .ok();
-                    return None; // closing the connection
-                }
+                    Err(ReadError::WrongRequestLine) => 
+                    {
+                        let writer = self.sink.next().unwrap();
+                        let response = Response::new_empty(StatusCode(400));
+                        response
+                            .raw_print(writer, HTTPVersion(1, 1), &[], false, None)
+                            .ok();
+                        return None; // we don't know where the next request would start,
+                                    // se we have to close
+                    }
 
-                Err(ReadError::ExpectationFailed(ver)) => {
-                    let writer = self.sink.next().unwrap();
-                    let response = Response::new_empty(StatusCode(417));
-                    response.raw_print(writer, ver, &[], true, None).ok();
-                    return None; // TODO: should be recoverable, but needs handling in case of body
-                }
+                    Err(ReadError::WrongHeader(ver)) => 
+                    {
+                        let writer = self.sink.next().unwrap();
+                        let response = Response::new_empty(StatusCode(400));
+                        response.raw_print(writer, ver, &[], false, None).ok();
+                        return None; // we don't know where the next request would start,
+                                    // se we have to close
+                    }
 
-                Err(ReadError::ReadIoError(_)) => return None,
+                    Err(ReadError::ReadIoError(ref err)) if err.kind() == ErrorKind::TimedOut => {
+                        // request timeout
+                        let writer = self.sink.next().unwrap();
+                        let response = Response::new_empty(StatusCode(408));
+                        response
+                            .raw_print(writer, HTTPVersion(1, 1), &[], false, None)
+                            .ok();
+                        return None; // closing the connection
+                    }
 
-                Ok(rq) => rq,
-            };
+                    Err(ReadError::ExpectationFailed(ver)) => {
+                        let writer = self.sink.next().unwrap();
+                        let response = Response::new_empty(StatusCode(417));
+                        response.raw_print(writer, ver, &[], true, None).ok();
+                        return None; // TODO: should be recoverable, but needs handling in case of body
+                    }
+
+                    Err(ReadError::ReadIoError(_)) => return None,
+
+                    Ok(rq) => rq,
+                };
 
             // checking HTTP version
             if *rq.http_version() > (1, 1) {

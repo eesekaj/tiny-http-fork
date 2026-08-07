@@ -10,7 +10,6 @@ use std::sync::mpsc::Sender;
 
 use crate::util::{EqualReader, FusedReader};
 use crate::{HTTPVersion, Header, Method, Response, StatusCode};
-use ascii::{AsciiChar};
 use chunked_transfer::Decoder;
 
 /// Represents an HTTP request made by a client.
@@ -207,111 +206,115 @@ where
     // we wrap `source_data` around a reading whose nature depends on the transfer-encoding and
     // content-length headers
     let reader = 
-    if connection_upgrade == true
-    {
-        // if we have a `Connection: upgrade`, always keeping the whole reader
-        Box::new(source_data) as Box<dyn Read + Send + 'static>
-    } 
-    else if let Some(content_length) = content_length 
-    {
-        if content_length == 0 
+        if connection_upgrade == true
         {
-            Box::new(io::empty()) as Box<dyn Read + Send + 'static>
+            // if we have a `Connection: upgrade`, always keeping the whole reader
+            Box::new(source_data) as Box<dyn Read + Send + 'static>
         } 
-        else if content_length <= 1024 && expects_continue == false
+        else if let Some(content_length) = content_length 
         {
-            // if the content-length is small enough, we just read everything into a buffer
-
-            let mut buffer = vec![0; content_length];
-            let mut offset = 0;
-
-            while offset != content_length 
+            if content_length == 0 
             {
-                let read = source_data.read(&mut buffer[offset..])?;
-                if read == 0 {
-                    // the socket returned EOF, but we were before the expected content-length
-                    // aborting
-                    let info = "Connection has been closed before we received enough data";
-                    let err = IoError::new(ErrorKind::ConnectionAborted, info);
-                    return Err(RequestCreationError::CreationIoError(err));
+                Box::new(io::empty()) as Box<dyn Read + Send + 'static>
+            } 
+            else if content_length <= 1024 && expects_continue == false
+            {
+                // if the content-length is small enough, we just read everything into a buffer
+
+                let mut buffer = vec![0; content_length];
+                let mut offset = 0;
+
+                while offset != content_length 
+                {
+                    let read = source_data.read(&mut buffer[offset..])?;
+                    if read == 0 {
+                        // the socket returned EOF, but we were before the expected content-length
+                        // aborting
+                        let info = "Connection has been closed before we received enough data";
+                        let err = IoError::new(ErrorKind::ConnectionAborted, info);
+                        return Err(RequestCreationError::CreationIoError(err));
+                    }
+
+                    offset += read;
                 }
 
-                offset += read;
+                Box::new(Cursor::new(buffer)) as Box<dyn Read + Send + 'static>
+            } 
+            else 
+            {
+                let (data_reader, _) = EqualReader::new(source_data, content_length); // TODO:
+                Box::new(FusedReader::new(data_reader)) as Box<dyn Read + Send + 'static>
+            }
+        } 
+        else if let Some(transfer_encoding) = transfer_encoding_opt
+        {
+            // attempting to parse, I have no idea what was the point to use an asciistring, when a simple verification of the 
+            // String for ASCII range would be enough, and this complicates everything.
+            let params = 
+                transfer_encoding
+                    .as_str()
+                    .split(',')
+                    .map(|v| v.trim_start())
+                    .collect::<Vec<&str>>();
+
+            // if I got it right the:
+            // Transfer-Encoding: gzip, chunked is valid
+            // Transfer-Encoding: chunked, gzip violates the spec
+            if params.is_empty() == true
+            {
+                // reject
+                return Err(RequestCreationError::ProtocolViolation);
             }
 
-            Box::new(Cursor::new(buffer)) as Box<dyn Read + Send + 'static>
+            const KNOWN_TRANSFER_ENCS: &'static [&'static str] = &["chunked", "gzip", "deflate", "compress"];
+
+            // go though all params to detemine if there are invalid combinations
+            if params.len() > 1
+            {
+                let mut hte: HashSet<&&str> = KNOWN_TRANSFER_ENCS.into_iter().collect::<HashSet<&&str>>();
+                for p in params.iter()
+                {
+                    if hte.remove(p) == false
+                    {
+                        // reject duplicate or unknown
+                        return Err(RequestCreationError::ProtocolViolation);
+                    }
+                }
+            }
+            
+            // the last is chunked always
+            if params.last() != Some(&"chunked")
+            {
+                // reject duplicate
+                return Err(RequestCreationError::ProtocolViolation);
+            }
+
+            Box::new(FusedReader::new(Decoder::new(source_data))) as Box<dyn Read + Send + 'static>
         } 
         else 
         {
-            let (data_reader, _) = EqualReader::new(source_data, content_length); // TODO:
-            Box::new(FusedReader::new(data_reader)) as Box<dyn Read + Send + 'static>
-        }
-    } 
-    else if let Some(transfer_encoding) = transfer_encoding_opt
-    {
-        // attempting to parse, I have no idea what was the point to use an asciistring, when a simple verification of the 
-        // String for ASCII range would be enough, and this complicates everything.
-        let params = 
-            transfer_encoding
-                .split(AsciiChar::Comma)
-                .map(|v| v.trim_start().as_str())
-                .collect::<Vec<&str>>();
+            // if we have neither a Content-Length nor a Transfer-Encoding,
+            // assuming that we have no data
+            // TODO: could also be multipart/byteranges
+            Box::new(io::empty()) as Box<dyn Read + Send + 'static>
+        };
 
-        // if I got it right the:
-        // Transfer-Encoding: gzip, chunked is valid
-        // Transfer-Encoding: chunked, gzip violates the spec
-        if params.is_empty() == true
+    return Ok(
+        Request 
         {
-            // reject
-            return Err(RequestCreationError::ProtocolViolation);
+            data_reader: Some(reader),
+            response_writer: Some(Box::new(writer) as Box<dyn Write + Send + 'static>),
+            remote_addr,
+            secure,
+            method,
+            path,
+            http_version: version,
+            headers,
+            body_length: content_length,
+            must_send_continue: expects_continue,
+            notify_when_responded: None,
         }
-
-        const KNOWN_TRANSFER_ENCS: &'static [&'static str] = &["chunked", "gzip", "deflate", "compress"];
-
-        // go though all params to detemine if there are invalid combinations
-        if params.len() > 1
-        {
-            let mut hte: HashSet<&&str> = KNOWN_TRANSFER_ENCS.into_iter().collect::<HashSet<&&str>>();
-            for p in params.iter()
-            {
-                if hte.remove(p) == false
-                {
-                    // reject duplicate or unknown
-                    return Err(RequestCreationError::ProtocolViolation);
-                }
-            }
-        }
-        
-        // the last is chunked always
-        if params.last() != Some(&"chunked")
-        {
-            // reject duplicate
-            return Err(RequestCreationError::ProtocolViolation);
-        }
-
-        Box::new(FusedReader::new(Decoder::new(source_data))) as Box<dyn Read + Send + 'static>
-    } 
-    else 
-    {
-        // if we have neither a Content-Length nor a Transfer-Encoding,
-        // assuming that we have no data
-        // TODO: could also be multipart/byteranges
-        Box::new(io::empty()) as Box<dyn Read + Send + 'static>
-    };
-
-    Ok(Request {
-        data_reader: Some(reader),
-        response_writer: Some(Box::new(writer) as Box<dyn Write + Send + 'static>),
-        remote_addr,
-        secure,
-        method,
-        path,
-        http_version: version,
-        headers,
-        body_length: content_length,
-        must_send_continue: expects_continue,
-        notify_when_responded: None,
-    })
+    );
 }
 
 impl Request {

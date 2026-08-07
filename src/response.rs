@@ -71,9 +71,10 @@ impl FromStr for TransferEncoding {
 }
 
 /// Builds a Date: header with the current date.
-fn build_date_header() -> Header {
+fn build_date_header() -> Header 
+{
     let d = HttpDate::from(SystemTime::now());
-    Header::from_bytes(&b"Date"[..], &d.to_string().into_bytes()[..]).unwrap()
+    Header::from_str("Date", d.to_string()).unwrap()
 }
 
 fn write_message_header<W>(
@@ -357,7 +358,7 @@ where
         if !self.headers.iter().any(|h| h.field.equiv("Server")) {
             self.headers.insert(
                 0,
-                Header::from_bytes(&b"Server"[..], &b"tiny-http (Rust)"[..]).unwrap(),
+                Header::from_str("Server", "tiny-http (Rust)").unwrap(),
             );
         }
 
@@ -365,11 +366,11 @@ where
         if let Some(upgrade) = upgrade {
             self.headers.insert(
                 0,
-                Header::from_bytes(&b"Upgrade"[..], upgrade.as_bytes()).unwrap(),
+                Header::from_str("Upgrade", upgrade).unwrap(),
             );
             self.headers.insert(
                 0,
-                Header::from_bytes(&b"Connection"[..], &b"upgrade"[..]).unwrap(),
+                Header::from_str("Connection", "upgrade").unwrap(),
             );
             transfer_encoding = None;
         }
@@ -401,16 +402,16 @@ where
         match transfer_encoding {
             Some(TransferEncoding::Chunked) => self
                 .headers
-                .push(Header::from_bytes(&b"Transfer-Encoding"[..], &b"chunked"[..]).unwrap()),
+                .push(Header::from_str("Transfer-Encoding", "chunked").unwrap()),
 
             Some(TransferEncoding::Identity) => {
                 assert!(data_length.is_some());
                 let data_length = data_length.unwrap();
 
                 self.headers.push(
-                    Header::from_bytes(
-                        &b"Content-Length"[..],
-                        format!("{}", data_length).as_bytes(),
+                    Header::from_str(
+                        "Content-Length",
+                        data_length.to_string(),//format!("{}", data_length),
                     )
                     .unwrap(),
                 )
@@ -530,7 +531,7 @@ impl Response<Cursor<Vec<u8>>> {
         Response::new(
             StatusCode(200),
             vec![
-                Header::from_bytes(&b"Content-Type"[..], &b"text/plain; charset=UTF-8"[..])
+                Header::from_str("Content-Type", "text/plain; charset=UTF-8")
                     .unwrap(),
             ],
             Cursor::new(data.into_bytes()),

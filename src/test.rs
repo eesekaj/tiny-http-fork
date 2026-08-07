@@ -1,5 +1,5 @@
+use crate::HeaderFieldValue;
 use crate::{request::new_request, HTTPVersion, Header, HeaderField, Method, Request};
-use ascii::AsciiString;
 use std::net::SocketAddr;
 use std::str::FromStr;
 
@@ -50,19 +50,21 @@ pub struct TestRequest {
     headers: Vec<Header>,
 }
 
-impl From<TestRequest> for Request {
-    fn from(mut mock: TestRequest) -> Request {
+impl From<TestRequest> for Request 
+{
+    fn from(mut mock: TestRequest) -> Request 
+    {
         // if the user didn't set the Content-Length header, then set it for them
         // otherwise, leave it alone (it may be under test)
-        if !mock
-            .headers
-            .iter_mut()
-            .any(|h| h.field.equiv("Content-Length"))
+        if false == 
+            mock
+                .headers
+                .iter_mut()
+                .any(|h| h.field.equiv("Content-Length"))
         {
-            mock.headers.push(Header {
-                field: HeaderField::from_str("Content-Length").unwrap(),
-                value: AsciiString::from_ascii(mock.body.len().to_string()).unwrap(),
-            });
+            mock.headers.push(
+                Header::from_str("Content-Length", mock.body.len().to_string()).unwrap()
+            );
         }
         new_request(
             mock.secure,
@@ -92,7 +94,8 @@ impl Default for TestRequest {
     }
 }
 
-impl TestRequest {
+impl TestRequest 
+{
     pub fn new() -> Self {
         TestRequest::default()
     }

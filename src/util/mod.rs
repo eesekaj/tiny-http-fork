@@ -28,6 +28,12 @@ pub use self::task_pool_legacy::TaskPool;
 #[cfg(feature = "task_pool_channel")]
 pub use self::task_pool_channel::TaskPool;
 
+#[cfg(all(not(feature = "task_pool_legacy"), not(feature = "task_pool_channel")))]
+compile_error!("select either task_pool_legacy or task_pool_channel");
+
+#[cfg(all(feature = "task_pool_legacy", feature = "task_pool_channel"))]
+compile_error!("select either task_pool_legacy or task_pool_channel");
+
 use std::str::FromStr;
 
 
