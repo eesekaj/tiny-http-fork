@@ -72,6 +72,9 @@ jobs:
             cargo build --all-targets --no-default-features --features task_pool_legacy
             cargo check --all-targets --no-default-features --features task_pool_legacy
             cargo test --no-default-features --features task_pool_legacy
+            cargo build --all-targets --no-default-features --features task_pool_legacy,allow_utf8_headers
+            cargo check --all-targets --no-default-features --features task_pool_legacy,allow_utf8_headers
+            cargo test --no-default-features --features task_pool_legacy,allow_utf8_headers
             cargo build --all-targets --no-default-features --features task_pool_channel
             cargo check --all-targets --no-default-features --features task_pool_channel
             cargo test --no-default-features --features task_pool_channel

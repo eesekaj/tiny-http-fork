@@ -34,44 +34,53 @@ jobs:
       - name: Run build debug (features task_pool_legacy)
         run: cargo build --all-targets --no-default-features --features task_pool_legacy
 
-      - name: Run checks (features )
+      - name: Run checks (features task_pool_legacy)
         run: cargo check --all-targets --no-default-features --features task_pool_legacy
 
-      - name: Run tests (features )
+      - name: Run tests (features task_pool_legacy)
         run: cargo test --no-default-features --features task_pool_legacy
+# --
+      - name: Run build debug (features task_pool_legacy, allow_utf8_headers)
+        run: cargo build --all-targets --no-default-features --features task_pool_legacy,allow_utf8_headers
+
+      - name: Run checks (features task_pool_legacy, allow_utf8_headers)
+        run: cargo check --all-targets --no-default-features --features task_pool_legacy,allow_utf8_headers
+
+      - name: Run tests (features task_pool_legacy, allow_utf8_headers)
+        run: cargo test --no-default-features --features task_pool_legacy,allow_utf8_headers
 # --  
       - name: Run build debug (features task_pool_channel)
         run: cargo build --all-targets --no-default-features --features task_pool_channel
 
-      - name: Run checks (features )
+      - name: Run checks (features task_pool_channel)
         run: cargo check --all-targets --no-default-features --features task_pool_channel
 
-      - name: Run tests (features )
+      - name: Run tests (features task_pool_channel)
         run: cargo test --no-default-features --features task_pool_channel
 # -- ssl-rustls
-      - name: Run build debug (features ssl-rustls)
+      - name: Run build debug (features ssl-rustls,task_pool_legacy)
         run: cargo build --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
-      - name: Run checks (features )
+      - name: Run checks (features ssl-rustls,task_pool_legacy)
         run: cargo check --all-targets --no-default-features --features ssl-rustls,task_pool_legacy
 
-      - name: Run tests (features )
+      - name: Run tests (features ssl-rustls,task_pool_legacy)
         run: cargo test --no-default-features --features ssl-rustls,task_pool_legacy
 # -- ssl-native-tls
-      - name: Run build debug (features ssl-native-tls)
+      - name: Run build debug (features ssl-native-tls,task_pool_legacy)
         run: cargo build --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
-      - name: Run checks (features )
+      - name: Run checks (features ssl-native-tls,task_pool_legacy)
         run: cargo check --all-targets --no-default-features --features ssl-native-tls,task_pool_legacy
 
-      - name: Run tests (features )
+      - name: Run tests (features ssl-native-tls,task_pool_legacy)
         run: cargo test --no-default-features --features ssl-native-tls,task_pool_legacy
 # -- ssl-openssl
-      - name: Run build debug (features ssl-openssl)
+      - name: Run build debug (features ssl-openssl,task_pool_legacy)
         run: cargo build --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
-      - name: Run checks (features )
+      - name: Run checks (features ssl-openssl,task_pool_legacy)
         run: cargo check --all-targets --no-default-features --features ssl-openssl,task_pool_legacy
 
-      - name: Run tests (features )
+      - name: Run tests (features ssl-openssl,task_pool_legacy)
         run: cargo test --no-default-features --features ssl-openssl,task_pool_legacy
